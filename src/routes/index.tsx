@@ -324,7 +324,7 @@ function HomePage() {
           <div className="grid gap-5 md:grid-cols-3">
             {courses.map((course, index) => {
               const image = courseImages[course.name] ?? hollowCreekImage;
-              const courseTeeTimes = teeTimes.filter(
+              const courseTeeTimes = selectedCourseTeeTimes.filter(
                 (t) => t.course_id === course.id
               );
               const previewSlots = courseTeeTimes
@@ -444,13 +444,13 @@ function HomePage() {
             })}
           </div>
 
-          {teeTimes.length === 0 ? (
+          {selectedCourseTeeTimes.length === 0 ? (
             <div className="rounded-2xl bg-white py-12 text-center ring-1 ring-line">
               <p className="text-ink-soft">No tee times found for this day.</p>
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
-              {teeTimes.map((slot) => {
+              {selectedCourseTeeTimes.map((slot) => {
                 const selected = selectedTeeTimeId === slot.id;
                 const full = slot.status === "full";
                 return (
