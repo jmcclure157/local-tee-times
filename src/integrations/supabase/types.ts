@@ -51,7 +51,10 @@ export type Database = {
       }
       courses: {
         Row: {
+          booking_platform: string | null
+          booking_url: string | null
           created_at: string | null
+          data_source: string
           distance_miles: number | null
           holes: number | null
           id: string
@@ -63,7 +66,10 @@ export type Database = {
           yards: number | null
         }
         Insert: {
+          booking_platform?: string | null
+          booking_url?: string | null
           created_at?: string | null
+          data_source?: string
           distance_miles?: number | null
           holes?: number | null
           id?: string
@@ -75,7 +81,10 @@ export type Database = {
           yards?: number | null
         }
         Update: {
+          booking_platform?: string | null
+          booking_url?: string | null
           created_at?: string | null
+          data_source?: string
           distance_miles?: number | null
           holes?: number | null
           id?: string
