@@ -59,6 +59,18 @@
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-ring: var(--sidebar-ring);
+
+  /* Fairway Clarity app tokens */
+  --color-fairway: var(--fairway);
+  --color-fairway-dark: var(--fairway-dark);
+  --color-amber: var(--amber);
+  --color-paper: var(--paper);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+
+  --font-display: "Fraunces", Georgia, serif;
+  --font-sans: "DM Sans", system-ui, sans-serif;
 }
 
 :root {
@@ -95,6 +107,15 @@
   --sidebar-accent-foreground: oklch(0.208 0.042 265.755);
   --sidebar-border: oklch(0.929 0.013 255.508);
   --sidebar-ring: oklch(0.704 0.04 256.788);
+
+  /* Fairway Clarity palette */
+  --fairway: #14402a;
+  --fairway-dark: #0d2c1c;
+  --amber: #e0a106;
+  --paper: #f7f4ec;
+  --ink: #17201b;
+  --ink-soft: #5c6b60;
+  --line: #e4ddce;
 }
 
 .dark {
