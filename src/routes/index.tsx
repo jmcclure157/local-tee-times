@@ -528,6 +528,13 @@ function HomePage() {
   );
 }
 
+const timeFormatter = new Intl.DateTimeFormat("en-US", {
+  hour: "numeric",
+  minute: "2-digit",
+  hour12: true,
+  timeZone: "America/Chicago",
+});
+
 function formatTime(iso: string) {
-  return format(parseISO(iso), "h:mm a").replace(":00", "").toLowerCase();
+  return timeFormatter.format(parseISO(iso)).replace(":00", "").toLowerCase();
 }
