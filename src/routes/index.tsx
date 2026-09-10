@@ -22,11 +22,11 @@ import pineHollowImage from "@/assets/course-pine-hollow.jpg";
 import { supabase } from "@/integrations/supabase/client";
 import { toast } from "sonner";
 
-const courseImages: Record<string, string> = {
-  "Hollow Creek": hollowCreekImage,
-  "Larkspur Links": larkspurLinksImage,
-  "Pine Hollow": pineHollowImage,
-};
+const fallbackImages = [hollowCreekImage, larkspurLinksImage, pineHollowImage];
+
+function courseImage(index: number) {
+  return fallbackImages[index % fallbackImages.length] ?? hollowCreekImage;
+}
 
 const coursesQueryOptions = queryOptions({
   queryKey: ["courses"],
@@ -323,7 +323,8 @@ function HomePage() {
           </div>
           <div className="grid gap-5 md:grid-cols-3">
             {courses.map((course, index) => {
-              const image = courseImages[course.name] ?? hollowCreekImage;
+              const image = courseImage(index);
+              const isLive = course.data_source === "live";
               const courseTeeTimes = allTeeTimes.filter(
                 (t) => t.course_id === course.id
               );
@@ -351,20 +352,27 @@ function HomePage() {
                     />
                   </div>
                   <div className="p-5">
-                    <div className="flex items-start justify-between">
+                    <div className="flex items-start justify-between gap-3">
                       <h3 className="font-display text-xl font-semibold tracking-tight">
                         {course.name}
                       </h3>
-                      <span className="rounded-full bg-fairway/10 px-2.5 py-1 text-xs font-semibold text-fairway">
-                        {openCount} open
+                      <span
+                        className={`shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          isLive
+                            ? "bg-fairway/10 text-fairway"
+                            : "bg-paper text-ink-soft ring-1 ring-line"
+                        }`}
+                      >
+                        {isLive ? `${openCount} open` : "Book on site"}
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-ink-soft">
-                      {course.distance_miles} mi · Par {course.par ?? "—"} ·{" "}
+                      {course.location} · {course.distance_miles} mi · Par{" "}
+                      {course.par ?? "—"} ·{" "}
                       {(course.yards ?? 0).toLocaleString()} yds
                     </p>
-                    <div className="mt-4 flex gap-2">
-                      {previewSlots.length > 0 ? (
+                    <div className="mt-4 flex flex-wrap gap-2">
+                      {isLive && previewSlots.length > 0 ? (
                         previewSlots.map((slot) => (
                           <span
                             key={slot.id}
@@ -372,10 +380,11 @@ function HomePage() {
                           >
                             {formatTime(slot.start_time)}
                           </span>
-                        )))
-                         : (
+                        ))
+                      ) : (
                         <span className="rounded-md bg-paper px-2.5 py-1 text-xs font-medium text-ink-soft">
-                          No openings
+                          Live times not connected ·{" "}
+                          {course.booking_platform ?? "course website"}
                         </span>
                       )}
                     </div>
@@ -383,13 +392,25 @@ function HomePage() {
                       <span className="text-sm font-semibold">
                         from ${course.price_from}
                       </span>
-                      <button
-                        onClick={() => handleCourseSelect(course.id)}
-                        className="text-sm font-medium text-fairway"
-                      >
-                        See times
-                        <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
-                      </button>
+                      {isLive ? (
+                        <button
+                          onClick={() => handleCourseSelect(course.id)}
+                          className="text-sm font-medium text-fairway"
+                        >
+                          See times
+                          <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
+                        </button>
+                      ) : (
+                        <a
+                          href={course.booking_url ?? "#"}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-sm font-medium text-fairway"
+                        >
+                          Book on course site
+                          <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
+                        </a>
+                      )}
                     </div>
                   </div>
                 </article>
@@ -445,8 +466,26 @@ function HomePage() {
           </div>
 
           {selectedCourseTeeTimes.length === 0 ? (
-            <div className="rounded-2xl bg-white py-12 text-center ring-1 ring-line">
-              <p className="text-ink-soft">No tee times found for this day.</p>
+            <div className="rounded-2xl bg-white px-6 py-12 text-center ring-1 ring-line">
+              <p className="font-medium">
+                Live availability isn't connected for {selectedCourse?.name} yet.
+              </p>
+              <p className="mx-auto mt-2 max-w-[52ch] text-sm text-ink-soft">
+                This course books through{" "}
+                {selectedCourse?.booking_platform ?? "its own website"}. Check
+                current openings there — we'll show them here once a feed is
+                available.
+              </p>
+              {selectedCourse?.booking_url && (
+                <a
+                  href={selectedCourse.booking_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="mt-5 inline-block rounded-full bg-fairway px-5 py-2.5 text-sm font-semibold text-paper"
+                >
+                  Open booking site
+                </a>
+              )}
             </div>
           ) : (
             <div className="grid grid-cols-3 gap-3 sm:grid-cols-4 lg:grid-cols-6">
