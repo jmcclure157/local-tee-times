@@ -324,7 +324,7 @@ function HomePage() {
           <div className="grid gap-5 md:grid-cols-3">
             {courses.map((course, index) => {
               const image = courseImages[course.name] ?? hollowCreekImage;
-              const courseTeeTimes = selectedCourseTeeTimes.filter(
+              const courseTeeTimes = allTeeTimes.filter(
                 (t) => t.course_id === course.id
               );
               const previewSlots = courseTeeTimes
