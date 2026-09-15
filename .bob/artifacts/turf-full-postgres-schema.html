@@ -1,0 +1,475 @@
+
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Turf — Full Postgres Schema</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 32px 20px 48px;
+  }
+  .page { max-width: 860px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 28px; }
+
+  /* ERD */
+  .erd { background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 10px; padding: 24px; margin-bottom: 32px; overflow-x: auto; }
+  .erd-title { font-size: 12px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.08em; color: #57606a; margin-bottom: 16px; }
+  .erd-grid { display: flex; gap: 24px; flex-wrap: wrap; align-items: flex-start; }
+  .erd-table {
+    background: #fff; border: 1px solid #e5e7eb; border-radius: 8px;
+    min-width: 200px; overflow: hidden; flex: 1;
+  }
+  .erd-table-header {
+    background: #1f2328; color: #fff;
+    padding: 8px 14px; font-size: 13px; font-weight: 600;
+  }
+  .erd-table-header.green  { background: #1a7f37; }
+  .erd-table-header.blue   { background: #0969da; }
+  .erd-table-header.purple { background: #7c5cd8; }
+  .erd-row { display: flex; justify-content: space-between; gap: 12px; padding: 5px 14px; border-top: 1px solid #f0f0f0; font-size: 12.5px; }
+  .erd-row:first-of-type { border-top: none; }
+  .erd-col { font-family: "SFMono-Regular", Consolas, monospace; }
+  .erd-type { color: #57606a; font-size: 11px; }
+  .erd-pk  { color: #bc4c00; font-weight: 600; }
+  .erd-fk  { color: #0969da; }
+  .erd-arrows { display: flex; align-items: center; color: #57606a; font-size: 18px; padding-top: 32px; }
+
+  /* Migration blocks */
+  .section-title {
+    font-size: 12px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #57606a;
+    margin: 28px 0 10px; border-bottom: 1px solid #e5e7eb; padding-bottom: 6px;
+  }
+  .migration {
+    border: 1px solid #e5e7eb; border-radius: 10px;
+    overflow: hidden; margin-bottom: 16px;
+  }
+  .migration-header {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #f7f8fa; padding: 10px 14px;
+    border-bottom: 1px solid #e5e7eb; gap: 8px; flex-wrap: wrap;
+  }
+  .migration-header-left { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .migration-num { font-size: 11px; color: #57606a; font-weight: 600; }
+  .migration-file { font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px; color: #1f2328; font-weight: 600; }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 20px; white-space: nowrap;
+  }
+  .badge-table  { background: #ddf4ff; color: #0550ae; }
+  .badge-seed   { background: #fff8c5; color: #9a6700; }
+  .badge-rpc    { background: #dafbe1; color: #1a7f37; }
+  .badge-rls    { background: #ffebe9; color: #cf222e; }
+  .badge-alter  { background: #fff1e5; color: #bc4c00; }
+  .badge-fn     { background: #fbefff; color: #7c5cd8; }
+  .badge-new    { background: #dafbe1; color: #1a7f37; }
+  .badge-orig   { background: #f7f8fa; color: #57606a; border: 1px solid #e5e7eb; }
+
+  pre {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 12px; line-height: 1.6;
+    padding: 16px;
+    white-space: pre-wrap; word-break: break-word;
+    background: #0d1117; color: #e6edf3;
+  }
+  /* SQL syntax highlight classes */
+  .kw  { color: #ff7b72; }   /* keywords */
+  .fn  { color: #d2a8ff; }   /* function names */
+  .ty  { color: #79c0ff; }   /* types */
+  .str { color: #a5d6ff; }   /* strings */
+  .cm  { color: #8b949e; font-style: italic; } /* comments */
+  .op  { color: #ff7b72; }   /* operators */
+  .num { color: #79c0ff; }   /* numbers */
+  .tbl { color: #ffa657; }   /* table names */
+
+  footer {
+    margin-top: 48px; padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center; font-size: 12px; color: #57606a;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Turf — Full Postgres Schema</h1>
+  <p class="subtitle">6 migrations · 3 tables · 2 functions · 4 RLS policies · 1 rolling refresh</p>
+
+  
+  <div class="erd">
+    <div class="erd-title">Entity Relationship Diagram</div>
+    <div class="erd-grid">
+
+      <div class="erd-table">
+        <div class="erd-table-header green">auth.users <span style="font-weight:400;font-size:11px;opacity:0.8">(Supabase built-in)</span></div>
+        <div class="erd-row"><span class="erd-col erd-pk">id</span><span class="erd-type">uuid PK</span></div>
+        <div class="erd-row"><span class="erd-col">email</span><span class="erd-type">text</span></div>
+      </div>
+
+      <div class="erd-arrows">→</div>
+
+      <div class="erd-table">
+        <div class="erd-table-header blue">public.courses</div>
+        <div class="erd-row"><span class="erd-col erd-pk">id</span><span class="erd-type">uuid PK</span></div>
+        <div class="erd-row"><span class="erd-col">name</span><span class="erd-type">text NOT NULL</span></div>
+        <div class="erd-row"><span class="erd-col">location</span><span class="erd-type">text</span></div>
+        <div class="erd-row"><span class="erd-col">distance_miles</span><span class="erd-type">integer</span></div>
+        <div class="erd-row"><span class="erd-col">par</span><span class="erd-type">integer</span></div>
+        <div class="erd-row"><span class="erd-col">yards</span><span class="erd-type">integer</span></div>
+        <div class="erd-row"><span class="erd-col">holes</span><span class="erd-type">integer DEFAULT 18</span></div>
+        <div class="erd-row"><span class="erd-col">price_from</span><span class="erd-type">integer</span></div>
+        <div class="erd-row"><span class="erd-col">booking_url</span><span class="erd-type">text</span></div>
+        <div class="erd-row"><span class="erd-col">booking_platform</span><span class="erd-type">text</span></div>
+        <div class="erd-row"><span class="erd-col">data_source</span><span class="erd-type">text DEFAULT 'link_out'</span></div>
+        <div class="erd-row" style="background:#fff8c5"><span class="erd-col">timezone</span><span class="erd-type" style="color:#9a6700">text DEFAULT 'America/Chicago' ✦new</span></div>
+        <div class="erd-row"><span class="erd-col">image_url</span><span class="erd-type">text</span></div>
+        <div class="erd-row"><span class="erd-col">created_at</span><span class="erd-type">timestamptz</span></div>
+      </div>
+
+      <div class="erd-arrows">→</div>
+
+      <div style="display:flex;flex-direction:column;gap:16px;flex:1">
+        <div class="erd-table">
+          <div class="erd-table-header blue">public.tee_times</div>
+          <div class="erd-row"><span class="erd-col erd-pk">id</span><span class="erd-type">uuid PK</span></div>
+          <div class="erd-row"><span class="erd-col erd-fk">course_id</span><span class="erd-type">uuid FK → courses</span></div>
+          <div class="erd-row"><span class="erd-col">start_time</span><span class="erd-type">timestamptz NOT NULL</span></div>
+          <div class="erd-row"><span class="erd-col">price</span><span class="erd-type">integer NOT NULL</span></div>
+          <div class="erd-row"><span class="erd-col">available_spots</span><span class="erd-type">integer DEFAULT 4</span></div>
+          <div class="erd-row"><span class="erd-col">max_spots</span><span class="erd-type">integer DEFAULT 4</span></div>
+          <div class="erd-row"><span class="erd-col">status</span><span class="erd-type">'available'|'full'|'booked'</span></div>
+          <div class="erd-row"><span class="erd-col">created_at</span><span class="erd-type">timestamptz</span></div>
+        </div>
+
+        <div class="erd-arrows" style="padding-top:0">↓</div>
+
+        <div class="erd-table">
+          <div class="erd-table-header purple">public.bookings</div>
+          <div class="erd-row"><span class="erd-col erd-pk">id</span><span class="erd-type">uuid PK</span></div>
+          <div class="erd-row"><span class="erd-col erd-fk">user_id</span><span class="erd-type">uuid FK → auth.users</span></div>
+          <div class="erd-row"><span class="erd-col erd-fk">tee_time_id</span><span class="erd-type">uuid FK → tee_times</span></div>
+          <div class="erd-row"><span class="erd-col">players</span><span class="erd-type">integer DEFAULT 1</span></div>
+          <div class="erd-row"><span class="erd-col">status</span><span class="erd-type">'confirmed'|'cancelled'</span></div>
+          <div class="erd-row"><span class="erd-col">created_at</span><span class="erd-type">timestamptz</span></div>
+          <div class="erd-row" style="background:#f7f8fa"><span class="erd-col" style="color:#57606a;font-size:11px">UNIQUE(user_id, tee_time_id)</span></div>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  
+  <div class="section-title">Migration 1 — Initial Schema</div>
+  <div class="migration">
+    <div class="migration-header">
+      <div class="migration-header-left">
+        <span class="badge badge-orig">original</span>
+        <span class="migration-file">20260910150430_…sql</span>
+        <span class="badge badge-table">CREATE TABLE</span>
+        <span class="badge badge-rls">RLS</span>
+        <span class="badge badge-seed">seed data</span>
+      </div>
+    </div>
+    <pre><span class="cm">-- Three core tables</span>
+<span class="kw">CREATE TABLE</span> <span class="tbl">public.courses</span> (
+  <span class="fn">id</span>             <span class="ty">uuid</span>       <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">gen_random_uuid</span>(),
+  <span class="fn">name</span>           <span class="ty">text</span>       <span class="kw">NOT NULL</span>,
+  <span class="fn">location</span>       <span class="ty">text</span>,
+  <span class="fn">distance_miles</span> <span class="ty">integer</span>,
+  <span class="fn">par</span>            <span class="ty">integer</span>,
+  <span class="fn">yards</span>          <span class="ty">integer</span>,
+  <span class="fn">holes</span>          <span class="ty">integer</span>    <span class="kw">DEFAULT</span> <span class="num">18</span>,
+  <span class="fn">image_url</span>      <span class="ty">text</span>,
+  <span class="fn">price_from</span>     <span class="ty">integer</span>,
+  <span class="fn">created_at</span>     <span class="ty">timestamptz</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+
+<span class="kw">CREATE TABLE</span> <span class="tbl">public.tee_times</span> (
+  <span class="fn">id</span>              <span class="ty">uuid</span>       <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">gen_random_uuid</span>(),
+  <span class="fn">course_id</span>       <span class="ty">uuid</span>       <span class="kw">NOT NULL REFERENCES</span> <span class="tbl">public.courses</span>(<span class="fn">id</span>) <span class="kw">ON DELETE CASCADE</span>,
+  <span class="fn">start_time</span>      <span class="ty">timestamptz</span> <span class="kw">NOT NULL</span>,
+  <span class="fn">price</span>           <span class="ty">integer</span>    <span class="kw">NOT NULL</span>,
+  <span class="fn">available_spots</span> <span class="ty">integer</span>    <span class="kw">NOT NULL DEFAULT</span> <span class="num">4</span>,
+  <span class="fn">max_spots</span>       <span class="ty">integer</span>    <span class="kw">NOT NULL DEFAULT</span> <span class="num">4</span>,
+  <span class="fn">status</span>          <span class="ty">text</span>       <span class="kw">DEFAULT</span> <span class="str">'available'</span>
+                             <span class="kw">CHECK</span> (status <span class="kw">IN</span> (<span class="str">'available'</span>, <span class="str">'full'</span>, <span class="str">'booked'</span>)),
+  <span class="fn">created_at</span>      <span class="ty">timestamptz</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>()
+);
+
+<span class="kw">CREATE TABLE</span> <span class="tbl">public.bookings</span> (
+  <span class="fn">id</span>          <span class="ty">uuid</span>    <span class="kw">PRIMARY KEY DEFAULT</span> <span class="fn">gen_random_uuid</span>(),
+  <span class="fn">user_id</span>     <span class="ty">uuid</span>    <span class="kw">NOT NULL REFERENCES</span> <span class="tbl">auth.users</span>(<span class="fn">id</span>) <span class="kw">ON DELETE CASCADE</span>,
+  <span class="fn">tee_time_id</span> <span class="ty">uuid</span>    <span class="kw">NOT NULL REFERENCES</span> <span class="tbl">public.tee_times</span>(<span class="fn">id</span>) <span class="kw">ON DELETE CASCADE</span>,
+  <span class="fn">players</span>     <span class="ty">integer</span> <span class="kw">DEFAULT</span> <span class="num">1</span> <span class="kw">NOT NULL</span>,
+  <span class="fn">status</span>      <span class="ty">text</span>    <span class="kw">DEFAULT</span> <span class="str">'confirmed'</span>
+                      <span class="kw">CHECK</span> (status <span class="kw">IN</span> (<span class="str">'confirmed'</span>, <span class="str">'cancelled'</span>)),
+  <span class="fn">created_at</span>  <span class="ty">timestamptz</span> <span class="kw">DEFAULT</span> <span class="fn">now</span>(),
+  <span class="kw">UNIQUE</span>(<span class="fn">user_id</span>, <span class="fn">tee_time_id</span>)
+);
+
+<span class="cm">-- Grants</span>
+<span class="kw">GRANT SELECT ON</span> <span class="tbl">public.courses</span>   <span class="kw">TO</span> anon, authenticated;
+<span class="kw">GRANT SELECT ON</span> <span class="tbl">public.tee_times</span> <span class="kw">TO</span> anon, authenticated;
+<span class="kw">GRANT SELECT, INSERT, UPDATE, DELETE ON</span> <span class="tbl">public.bookings</span> <span class="kw">TO</span> authenticated;
+<span class="kw">GRANT ALL ON</span> <span class="tbl">public.courses</span>, <span class="tbl">public.tee_times</span>, <span class="tbl">public.bookings</span> <span class="kw">TO</span> service_role;
+
+<span class="cm">-- Enable RLS on all tables</span>
+<span class="kw">ALTER TABLE</span> <span class="tbl">public.courses</span>   <span class="kw">ENABLE ROW LEVEL SECURITY</span>;
+<span class="kw">ALTER TABLE</span> <span class="tbl">public.tee_times</span> <span class="kw">ENABLE ROW LEVEL SECURITY</span>;
+<span class="kw">ALTER TABLE</span> <span class="tbl">public.bookings</span>  <span class="kw">ENABLE ROW LEVEL SECURITY</span>;
+
+<span class="cm">-- RLS Policies</span>
+<span class="kw">CREATE POLICY</span> <span class="str">"Public courses are viewable by everyone"</span>
+  <span class="kw">ON</span> <span class="tbl">public.courses</span> <span class="kw">FOR SELECT TO</span> anon, authenticated <span class="kw">USING</span> (<span class="kw">true</span>);
+
+<span class="kw">CREATE POLICY</span> <span class="str">"Public tee times are viewable by everyone"</span>
+  <span class="kw">ON</span> <span class="tbl">public.tee_times</span> <span class="kw">FOR SELECT TO</span> anon, authenticated <span class="kw">USING</span> (<span class="kw">true</span>);
+
+<span class="kw">CREATE POLICY</span> <span class="str">"Users can manage their own bookings"</span>
+  <span class="kw">ON</span> <span class="tbl">public.bookings</span> <span class="kw">FOR ALL TO</span> authenticated
+  <span class="kw">USING</span> (<span class="fn">auth.uid</span>() = user_id) <span class="kw">WITH CHECK</span> (<span class="fn">auth.uid</span>() = user_id);
+
+<span class="cm">-- Seed: 3 placeholder courses + 7-day tee time slots (now()-relative, expires after a week)</span>
+<span class="kw">INSERT INTO</span> <span class="tbl">public.courses</span> … <span class="cm">-- Hollow Creek, Larkspur Links, Pine Hollow</span></pre>
+  </div>
+
+  
+  <div class="section-title">Migration 2 — Real DFW Courses</div>
+  <div class="migration">
+    <div class="migration-header">
+      <div class="migration-header-left">
+        <span class="badge badge-orig">original</span>
+        <span class="migration-file">20260910160502_…sql</span>
+        <span class="badge badge-alter">ALTER TABLE</span>
+        <span class="badge badge-seed">re-seed</span>
+      </div>
+    </div>
+    <pre><span class="cm">-- Add booking / data-source columns to courses</span>
+<span class="kw">ALTER TABLE</span> <span class="tbl">public.courses</span>
+  <span class="kw">ADD COLUMN IF NOT EXISTS</span> booking_url      <span class="ty">text</span>,
+  <span class="kw">ADD COLUMN IF NOT EXISTS</span> booking_platform <span class="ty">text</span>,
+  <span class="kw">ADD COLUMN IF NOT EXISTS</span> data_source      <span class="ty">text</span> <span class="kw">NOT NULL DEFAULT</span> <span class="str">'link_out'</span>;
+
+<span class="cm">-- Replace placeholder data with real DFW courses</span>
+<span class="kw">DELETE FROM</span> <span class="tbl">public.bookings</span>;
+<span class="kw">DELETE FROM</span> <span class="tbl">public.tee_times</span>;
+<span class="kw">DELETE FROM</span> <span class="tbl">public.courses</span>;
+
+<span class="kw">INSERT INTO</span> <span class="tbl">public.courses</span> (name, location, distance_miles, par, yards, holes, price_from, booking_url, booking_platform, data_source) <span class="kw">VALUES</span>
+  (<span class="str">'Cedar Crest Golf Course'</span>, <span class="str">'Dallas, TX'</span>,      <span class="num">6</span>,  <span class="num">71</span>, <span class="num">6550</span>, <span class="num">18</span>, <span class="num">30</span>,  <span class="str">'https://www.golfdallas.org/'</span>,           <span class="str">'City of Dallas booking widget'</span>, <span class="str">'link_out'</span>),
+  (<span class="str">'Waterchase Golf Course'</span>,  <span class="str">'Fort Worth, TX'</span>,  <span class="num">28</span>,  <span class="num">72</span>, <span class="num">7304</span>, <span class="num">18</span>, <span class="num">45</span>,  <span class="str">'https://www.waterchasegolf.com/'</span>,        <span class="str">'GolfNow'</span>,                       <span class="str">'link_out'</span>),
+  (<span class="str">'Golf Club of Dallas'</span>,     <span class="str">'Dallas, TX'</span>,      <span class="num">9</span>,  <span class="num">71</span>, <span class="num">6500</span>, <span class="num">18</span>, <span class="num">60</span>,  <span class="str">'https://www.golfclubofdallas.com/'</span>,      <span class="str">'Purpose Golf'</span>,                  <span class="str">'link_out'</span>),
+  (<span class="str">'Bear Creek Golf Club'</span>,    <span class="str">'Irving, TX'</span>,      <span class="num">17</span>,  <span class="num">72</span>, <span class="num">6670</span>, <span class="num">36</span>, <span class="num">55</span>,  <span class="str">'https://www.bearcreekgolfclub.com/'</span>,     <span class="str">'Arcis Golf / Quick18'</span>,          <span class="str">'link_out'</span>),
+  (<span class="str">'Texas Star Golf Course'</span>,  <span class="str">'Euless, TX'</span>,      <span class="num">22</span>,  <span class="num">71</span>, <span class="num">6936</span>, <span class="num">18</span>, <span class="num">50</span>,  <span class="str">'https://www.texasstargolf.com/'</span>,         <span class="str">'Course booking system'</span>,         <span class="str">'link_out'</span>),
+  (<span class="str">'Cowboys Golf Club'</span>,       <span class="str">'Grapevine, TX'</span>,   <span class="num">25</span>,  <span class="num">72</span>, <span class="num">7017</span>, <span class="num">18</span>, <span class="num">130</span>, <span class="str">'https://www.cowboysgolfclub.com/'</span>,       <span class="str">'Arcis Golf / Quick18'</span>,          <span class="str">'link_out'</span>);</pre>
+  </div>
+
+  
+  <div class="section-title">Migration 3 — Atomic Booking RPC</div>
+  <div class="migration">
+    <div class="migration-header">
+      <div class="migration-header-left">
+        <span class="badge badge-new">new</span>
+        <span class="migration-file">20260910170000_atomic_booking_rpc.sql</span>
+        <span class="badge badge-rpc">FUNCTION</span>
+        <span class="badge badge-rls">SECURITY DEFINER</span>
+      </div>
+    </div>
+    <pre><span class="cm">-- Fixes: race condition where 3 separate queries could allow double-bookings.</span>
+<span class="cm">-- This function runs entirely inside a single transaction.</span>
+<span class="kw">CREATE OR REPLACE FUNCTION</span> <span class="fn">public.book_tee_time</span>(
+  p_tee_time_id <span class="ty">uuid</span>,
+  p_user_id     <span class="ty">uuid</span>,
+  p_players     <span class="ty">int</span>
+)
+<span class="kw">RETURNS</span> <span class="tbl">public.bookings</span>
+<span class="kw">LANGUAGE</span> plpgsql
+<span class="kw">SECURITY DEFINER</span>          <span class="cm">-- runs as owner, bypasses RLS on tee_times</span>
+<span class="kw">SET</span> search_path = public
+<span class="kw">AS</span> $$
+<span class="kw">DECLARE</span>
+  v_booking <span class="tbl">public.bookings</span>;
+<span class="kw">BEGIN</span>
+  <span class="cm">-- Atomically check AND decrement in one statement.</span>
+  <span class="cm">-- If another request already took the last spot, NOT FOUND fires.</span>
+  <span class="kw">UPDATE</span> <span class="tbl">public.tee_times</span>
+  <span class="kw">SET</span>
+    available_spots = available_spots - p_players,
+    status          = <span class="kw">CASE WHEN</span> (available_spots - p_players) = <span class="num">0</span>
+                      <span class="kw">THEN</span> <span class="str">'full'</span> <span class="kw">ELSE</span> <span class="str">'available'</span> <span class="kw">END</span>
+  <span class="kw">WHERE</span> id              = p_tee_time_id
+    <span class="kw">AND</span> status         <span class="op">&lt;&gt;</span> <span class="str">'full'</span>
+    <span class="kw">AND</span> available_spots <span class="op">&gt;=</span> p_players;
+
+  <span class="kw">IF NOT FOUND THEN</span>
+    <span class="kw">RAISE EXCEPTION</span> <span class="str">'Not enough spots available'</span>
+      <span class="kw">USING</span> ERRCODE = <span class="str">'P0001'</span>;
+  <span class="kw">END IF</span>;
+
+  <span class="kw">INSERT INTO</span> <span class="tbl">public.bookings</span> (tee_time_id, user_id, players)
+  <span class="kw">VALUES</span> (p_tee_time_id, p_user_id, p_players)
+  <span class="kw">RETURNING</span> * <span class="kw">INTO</span> v_booking;
+
+  <span class="kw">RETURN</span> v_booking;
+<span class="kw">END</span>;
+$$;
+
+<span class="kw">REVOKE EXECUTE ON FUNCTION</span> <span class="fn">public.book_tee_time</span>(<span class="ty">uuid</span>, <span class="ty">uuid</span>, <span class="ty">int</span>) <span class="kw">FROM</span> PUBLIC;
+<span class="kw">GRANT  EXECUTE ON FUNCTION</span> <span class="fn">public.book_tee_time</span>(<span class="ty">uuid</span>, <span class="ty">uuid</span>, <span class="ty">int</span>) <span class="kw">TO</span> authenticated;</pre>
+  </div>
+
+  
+  <div class="section-title">Migration 4 — Timezone Column</div>
+  <div class="migration">
+    <div class="migration-header">
+      <div class="migration-header-left">
+        <span class="badge badge-new">new</span>
+        <span class="migration-file">20260910170001_courses_timezone.sql</span>
+        <span class="badge badge-alter">ALTER TABLE</span>
+      </div>
+    </div>
+    <pre><span class="cm">-- Fixes: tee times were displayed in hardcoded America/Chicago regardless of course location.</span>
+<span class="cm">-- Each course now carries its own IANA timezone string.</span>
+<span class="kw">ALTER TABLE</span> <span class="tbl">public.courses</span>
+  <span class="kw">ADD COLUMN IF NOT EXISTS</span> timezone <span class="ty">text</span> <span class="kw">NOT NULL DEFAULT</span> <span class="str">'America/Chicago'</span>;
+
+<span class="kw">UPDATE</span> <span class="tbl">public.courses</span> <span class="kw">SET</span> timezone = <span class="str">'America/Chicago'</span>; <span class="cm">-- back-fill DFW courses</span></pre>
+  </div>
+
+  
+  <div class="section-title">Migration 5 — Rolling Tee Time Refresh</div>
+  <div class="migration">
+    <div class="migration-header">
+      <div class="migration-header-left">
+        <span class="badge badge-new">new</span>
+        <span class="migration-file">20260910170002_rolling_tee_times.sql</span>
+        <span class="badge badge-fn">FUNCTION</span>
+        <span class="badge badge-seed">rolling refresh</span>
+      </div>
+    </div>
+    <pre><span class="cm">-- Fixes: seeded tee times were generated once at migration time with now(),</span>
+<span class="cm">-- meaning they expired after 7 days and the app would show zero results.</span>
+<span class="cm">-- Schedule SELECT public.refresh_tee_times() daily via pg_cron or Edge Function cron.</span>
+<span class="kw">CREATE OR REPLACE FUNCTION</span> <span class="fn">public.refresh_tee_times</span>()
+<span class="kw">RETURNS</span> <span class="ty">void</span>
+<span class="kw">LANGUAGE</span> plpgsql
+<span class="kw">SECURITY DEFINER</span>
+<span class="kw">SET</span> search_path = public
+<span class="kw">AS</span> $$
+<span class="kw">DECLARE</span>
+  v_course     <span class="ty">record</span>;
+  v_slot_time  <span class="ty">timestamptz</span>;
+  v_spots      <span class="ty">int</span>;
+  v_slots      <span class="ty">text[]</span> := <span class="kw">ARRAY</span>[<span class="str">'07:00'</span>,<span class="str">'07:20'</span>,…,<span class="str">'14:00'</span>]; <span class="cm">-- 24 slots/day</span>
+<span class="kw">BEGIN</span>
+  <span class="cm">-- 1. Purge: delete past slots and anything beyond 7 days out</span>
+  <span class="kw">DELETE FROM</span> <span class="tbl">public.tee_times</span>
+  <span class="kw">WHERE</span> start_time <span class="op">&lt;</span>  <span class="fn">date_trunc</span>(<span class="str">'day'</span>, <span class="fn">now</span>())
+     <span class="kw">OR</span> start_time <span class="op">&gt;=</span> <span class="fn">date_trunc</span>(<span class="str">'day'</span>, <span class="fn">now</span>()) + <span class="str">'8 days'</span>::<span class="ty">interval</span>;
+
+  <span class="cm">-- 2. Fill: insert slots for today + 7 days, skipping existing rows (idempotent)</span>
+  <span class="kw">FOR</span> v_course <span class="kw">IN SELECT</span> id, price_from <span class="kw">FROM</span> <span class="tbl">public.courses</span>
+                  <span class="kw">WHERE</span> data_source = <span class="str">'live'</span> <span class="kw">LOOP</span>
+    <span class="kw">FOR</span> v_day_offset <span class="kw">IN</span> <span class="num">0</span>..<span class="num">6</span> <span class="kw">LOOP</span>
+      <span class="kw">FOREACH</span> v_slot <span class="kw">IN ARRAY</span> v_slots <span class="kw">LOOP</span>
+        v_slot_time := (CURRENT_DATE + v_day_offset || <span class="str">' '</span> || v_slot)::<span class="ty">timestamptz</span>;
+
+        <span class="kw">IF NOT EXISTS</span> (
+          <span class="kw">SELECT</span> <span class="num">1</span> <span class="kw">FROM</span> <span class="tbl">public.tee_times</span>
+          <span class="kw">WHERE</span> course_id = v_course.id <span class="kw">AND</span> start_time = v_slot_time
+        ) <span class="kw">THEN</span>
+          v_spots := <span class="fn">GREATEST</span>(<span class="num">0</span>, <span class="num">4</span> - <span class="fn">floor</span>(<span class="fn">random</span>() * <span class="num">5</span>)::<span class="ty">int</span>);
+          <span class="kw">INSERT INTO</span> <span class="tbl">public.tee_times</span> (course_id, start_time, price, available_spots, max_spots, status)
+          <span class="kw">VALUES</span> (
+            v_course.id, v_slot_time,
+            v_course.price_from + <span class="fn">floor</span>(<span class="fn">random</span>() * <span class="num">40</span>)::<span class="ty">int</span>,
+            v_spots, <span class="num">4</span>,
+            <span class="kw">CASE WHEN</span> v_spots = <span class="num">0</span> <span class="kw">THEN</span> <span class="str">'full'</span> <span class="kw">ELSE</span> <span class="str">'available'</span> <span class="kw">END</span>
+          );
+        <span class="kw">END IF</span>;
+      <span class="kw">END LOOP</span>;
+    <span class="kw">END LOOP</span>;
+  <span class="kw">END LOOP</span>;
+<span class="kw">END</span>;
+$$;
+
+<span class="kw">REVOKE EXECUTE ON FUNCTION</span> <span class="fn">public.refresh_tee_times</span>() <span class="kw">FROM</span> PUBLIC;
+<span class="kw">GRANT  EXECUTE ON FUNCTION</span> <span class="fn">public.refresh_tee_times</span>() <span class="kw">TO</span> service_role;
+
+<span class="kw">SELECT</span> <span class="fn">public.refresh_tee_times</span>(); <span class="cm">-- run immediately after migration</span></pre>
+  </div>
+
+  
+  <div class="section-title">Migration 6 — RLS Update Guard</div>
+  <div class="migration">
+    <div class="migration-header">
+      <div class="migration-header-left">
+        <span class="badge badge-new">new</span>
+        <span class="migration-file">20260910170003_tee_times_rls_update.sql</span>
+        <span class="badge badge-rls">RLS POLICY</span>
+      </div>
+    </div>
+    <pre><span class="cm">-- Fixes: no explicit RLS UPDATE policy existed on tee_times.</span>
+<span class="cm">-- Authenticated clients could call .update() directly (would silently return 0 rows,</span>
+<span class="cm">-- but intent was unclear). This policy makes the restriction explicit.</span>
+<span class="cm">-- All mutations MUST go through the book_tee_time() SECURITY DEFINER RPC.</span>
+<span class="kw">CREATE POLICY</span> <span class="str">"No direct updates from clients"</span>
+  <span class="kw">ON</span> <span class="tbl">public.tee_times</span>
+  <span class="kw">FOR UPDATE</span>
+  <span class="kw">TO</span> authenticated
+  <span class="kw">USING</span> (<span class="kw">false</span>)
+  <span class="kw">WITH CHECK</span> (<span class="kw">false</span>);</pre>
+  </div>
+
+  
+  <div class="section-title">RLS Policy Summary</div>
+  <div style="border:1px solid #e5e7eb;border-radius:10px;overflow:hidden;margin-bottom:16px">
+    <table style="width:100%;border-collapse:collapse;font-size:13px">
+      <thead>
+        <tr style="background:#f7f8fa;border-bottom:1px solid #e5e7eb">
+          <th style="padding:9px 14px;text-align:left;font-weight:600">Table</th>
+          <th style="padding:9px 14px;text-align:left;font-weight:600">Operation</th>
+          <th style="padding:9px 14px;text-align:left;font-weight:600">Role</th>
+          <th style="padding:9px 14px;text-align:left;font-weight:600">Condition</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr style="border-top:1px solid #f0f0f0">
+          <td style="padding:8px 14px;font-family:monospace;font-size:12px">courses</td>
+          <td style="padding:8px 14px">SELECT</td>
+          <td style="padding:8px 14px">anon, authenticated</td>
+          <td style="padding:8px 14px;color:#1a7f37">always (public)</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f0">
+          <td style="padding:8px 14px;font-family:monospace;font-size:12px">tee_times</td>
+          <td style="padding:8px 14px">SELECT</td>
+          <td style="padding:8px 14px">anon, authenticated</td>
+          <td style="padding:8px 14px;color:#1a7f37">always (public)</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f0;background:#fff8c5">
+          <td style="padding:8px 14px;font-family:monospace;font-size:12px">tee_times</td>
+          <td style="padding:8px 14px">UPDATE</td>
+          <td style="padding:8px 14px">authenticated</td>
+          <td style="padding:8px 14px;color:#cf222e">blocked — use RPC ✦new</td>
+        </tr>
+        <tr style="border-top:1px solid #f0f0f0">
+          <td style="padding:8px 14px;font-family:monospace;font-size:12px">bookings</td>
+          <td style="padding:8px 14px">ALL</td>
+          <td style="padding:8px 14px">authenticated</td>
+          <td style="padding:8px 14px;color:#0969da">auth.uid() = user_id</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+
+</div>
+
+<footer>Made with IBM Bob</footer>
+</body>
+</html>

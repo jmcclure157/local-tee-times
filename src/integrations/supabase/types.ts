@@ -14,6 +14,35 @@ export type Database = {
   }
   public: {
     Tables: {
+      saved_courses: {
+        Row: {
+          id: string
+          user_id: string
+          course_id: string
+          created_at: string | null
+        }
+        Insert: {
+          id?: string
+          user_id: string
+          course_id: string
+          created_at?: string | null
+        }
+        Update: {
+          id?: string
+          user_id?: string
+          course_id?: string
+          created_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "saved_courses_course_id_fkey"
+            columns: ["course_id"]
+            isOneToOne: false
+            referencedRelation: "courses"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bookings: {
         Row: {
           created_at: string | null

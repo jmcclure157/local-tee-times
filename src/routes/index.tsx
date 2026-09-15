@@ -1,6 +1,6 @@
 import { useState, useMemo } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useSuspenseQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
+import { useSuspenseQuery, useQuery, useQueryClient, queryOptions } from "@tanstack/react-query";
 import {
   format,
   addDays,
@@ -8,13 +8,15 @@ import {
   isSameDay,
   parseISO,
 } from "date-fns";
-import { MapPin, Calendar, ArrowRight } from "lucide-react";
+import { MapPin, Calendar, ArrowRight, Bookmark, Map, List } from "lucide-react";
 
 import { useServerFn } from "@tanstack/react-start";
 import {
   listCourses,
   listTeeTimesForDate,
   createBooking,
+  toggleSavedCourse,
+  listSavedCourses,
 } from "@/lib/tee-times.functions";
 import hollowCreekImage from "@/assets/course-hollow-creek.jpg";
 import larkspurLinksImage from "@/assets/course-larkspur-links.jpg";
@@ -31,6 +33,11 @@ function courseImage(index: number) {
 const coursesQueryOptions = queryOptions({
   queryKey: ["courses"],
   queryFn: () => listCourses(),
+});
+
+const savedCoursesQueryOptions = queryOptions({
+  queryKey: ["saved-courses"],
+  queryFn: () => listSavedCourses(),
 });
 
 // #7: include courseId so only the selected course's times are fetched,
@@ -81,20 +88,30 @@ function HomePage() {
   );
   const [players, setPlayers] = useState(1);
   const [bookingInProgress, setBookingInProgress] = useState(false);
-  // #4: search filter state
   const [courseSearch, setCourseSearch] = useState("");
+  const [courseView, setCourseView] = useState<"list" | "map">("list");
+  const [savingCourseId, setSavingCourseId] = useState<string | null>(null);
 
   const selectedCourse = useMemo(
     () => courses.find((c) => c.id === selectedCourseId) ?? courses[0],
     [courses, selectedCourseId]
   );
 
-  // #7: fetch only the selected course's tee times
+  // Fetch only the selected course's tee times
   const { data: selectedCourseTeeTimes = [] } = useSuspenseQuery(
     teeTimesQueryOptions(selectedDate, selectedCourse?.id ?? null)
   );
 
-  // #4: filtered course list based on search input
+  // Load saved courses — uses useQuery (not useSuspense) so it fails silently for unauthenticated users
+  const { data: savedCoursesData = [] } = useQuery({
+    ...savedCoursesQueryOptions,
+    retry: false,
+  });
+  const savedCourseIds = useMemo(
+    () => new Set((savedCoursesData).map((s) => (s.courses as { id: string } | null)?.id).filter(Boolean)),
+    [savedCoursesData]
+  );
+
   const filteredCourses = useMemo(() => {
     const q = courseSearch.trim().toLowerCase();
     if (!q) return courses;
@@ -114,6 +131,29 @@ function HomePage() {
   const maxPlayers = selectedTeeTime?.available_spots ?? 4;
 
   const createBookingFn = useServerFn(createBooking);
+  const toggleSavedFn = useServerFn(toggleSavedCourse);
+
+  const handleToggleSave = async (courseId: string) => {
+    setSavingCourseId(courseId);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) {
+        toast.error("Sign in required", {
+          description: "Please sign in to save courses.",
+        });
+        return;
+      }
+      const result = await toggleSavedFn({ data: { courseId } });
+      toast.success(result.saved ? "Course saved" : "Course removed");
+      queryClient.invalidateQueries({ queryKey: ["saved-courses"] });
+    } catch (error) {
+      toast.error("Couldn't save course", {
+        description: error instanceof Error ? error.message : "Please try again.",
+      });
+    } finally {
+      setSavingCourseId(null);
+    }
+  };
 
   const weekDays = useMemo(() => {
     const days: Date[] = [];
@@ -183,17 +223,20 @@ function HomePage() {
             <Link to="/" className="text-ink">
               Nearby
             </Link>
-            <span className="cursor-not-allowed opacity-60">My rounds</span>
-            <span className="cursor-not-allowed opacity-60">Saved</span>
+            <Link to="/rounds" className="hover:text-ink">
+              My rounds
+            </Link>
+            <Link to="/saved" className="hover:text-ink">
+              Saved
+            </Link>
           </nav>
           <div className="flex items-center gap-2 text-sm font-medium">
-            <button
-              disabled
-              title="Coming soon"
-              className="cursor-not-allowed rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10 opacity-50"
+            <Link
+              to="/saved"
+              className="rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10 transition-transform hover:-translate-y-[1px]"
             >
-              Save list
-            </button>
+              Saved list
+            </Link>
           </div>
         </header>
 
@@ -326,13 +369,18 @@ function HomePage() {
             >
               {bookingInProgress ? "Booking…" : "Confirm tee time"}
             </button>
-            <button
-              disabled
-              title="Coming soon"
-              className="mt-2 w-full cursor-not-allowed rounded-full py-2 text-sm font-medium text-paper/40"
-            >
-              Save to my list
-            </button>
+            {selectedCourse && (
+              <button
+                onClick={() => handleToggleSave(selectedCourse.id)}
+                disabled={savingCourseId === selectedCourse.id}
+                className="mt-2 flex w-full items-center justify-center gap-1.5 rounded-full py-2 text-sm font-medium text-paper/70 hover:text-paper disabled:opacity-50"
+              >
+                <Bookmark
+                  className={`size-3.5 ${savedCourseIds.has(selectedCourse.id) ? "fill-paper/70" : ""}`}
+                />
+                {savedCourseIds.has(selectedCourse.id) ? "Saved" : "Save to my list"}
+              </button>
+            )}
           </div>
         </section>
 
@@ -343,14 +391,26 @@ function HomePage() {
             </h2>
             <div className="flex items-center gap-3">
               <div className="flex overflow-hidden rounded-full ring-1 ring-line">
-                <button className="bg-fairway px-4 py-1.5 text-xs font-semibold text-paper">
+                <button
+                  onClick={() => setCourseView("list")}
+                  className={`flex items-center gap-1 px-4 py-1.5 text-xs font-semibold transition ${
+                    courseView === "list"
+                      ? "bg-fairway text-paper"
+                      : "bg-white text-ink-soft hover:bg-paper"
+                  }`}
+                >
+                  <List className="size-3" />
                   List
                 </button>
                 <button
-                  disabled
-                  title="Coming soon"
-                  className="cursor-not-allowed bg-white px-4 py-1.5 text-xs font-medium text-ink-soft opacity-50"
+                  onClick={() => setCourseView("map")}
+                  className={`flex items-center gap-1 px-4 py-1.5 text-xs font-semibold transition ${
+                    courseView === "map"
+                      ? "bg-fairway text-paper"
+                      : "bg-white text-ink-soft hover:bg-paper"
+                  }`}
                 >
+                  <Map className="size-3" />
                   Map
                 </button>
               </div>
@@ -359,12 +419,81 @@ function HomePage() {
               </span>
             </div>
           </div>
+
+          {courseView === "map" ? (
+            <div className="rounded-2xl bg-white ring-1 ring-line overflow-hidden">
+              <div className="px-5 py-4 border-b border-line flex items-center justify-between">
+                <span className="text-sm font-medium text-ink-soft">
+                  {filteredCourses.length} courses shown
+                </span>
+                <button
+                  onClick={() => setCourseView("list")}
+                  className="text-sm font-medium text-fairway hover:text-fairway/80"
+                >
+                  Back to list
+                </button>
+              </div>
+              <div className="divide-y divide-line">
+                {filteredCourses.map((course, index) => {
+                  const isSaved = savedCourseIds.has(course.id);
+                  const isLive = course.data_source === "live";
+                  const courseTeeTimes =
+                    course.id === selectedCourse?.id ? selectedCourseTeeTimes : [];
+                  const openCount = courseTeeTimes.filter((t) => t.status !== "full").length;
+
+                  return (
+                    <div key={course.id} className="flex items-center justify-between gap-4 px-5 py-4">
+                      <div className="flex items-center gap-3 min-w-0">
+                        <div className="grid size-8 shrink-0 place-items-center rounded-full bg-fairway/10 font-display text-sm font-semibold text-fairway">
+                          {index + 1}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="font-semibold truncate">{course.name}</div>
+                          <div className="text-xs text-ink-soft flex items-center gap-1">
+                            <MapPin className="size-3 shrink-0" />
+                            {course.location} · {course.distance_miles ?? "?"} mi
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex shrink-0 items-center gap-2">
+                        <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${
+                          isLive ? "bg-fairway/10 text-fairway" : "bg-paper text-ink-soft ring-1 ring-line"
+                        }`}>
+                          {isLive ? `${openCount} open` : "Link out"}
+                        </span>
+                        <button
+                          onClick={() => handleToggleSave(course.id)}
+                          disabled={savingCourseId === course.id}
+                          aria-label={isSaved ? "Remove from saved" : "Save course"}
+                          className="grid size-7 place-items-center rounded-full text-ink-soft hover:text-fairway disabled:opacity-50"
+                        >
+                          <Bookmark className={`size-4 ${isSaved ? "fill-fairway text-fairway" : ""}`} />
+                        </button>
+                        {isLive ? (
+                          <button
+                            onClick={() => { handleCourseSelect(course.id); setCourseView("list"); }}
+                            className="text-xs font-medium text-fairway"
+                          >
+                            See times <ArrowRight className="inline size-3" />
+                          </button>
+                        ) : (
+                          <a href={course.booking_url ?? "#"} target="_blank" rel="noopener noreferrer"
+                            className="text-xs font-medium text-fairway">
+                            Book <ArrowRight className="inline size-3" />
+                          </a>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
           <div className="grid gap-5 md:grid-cols-3">
             {filteredCourses.map((course, index) => {
               const image = courseImage(index);
               const isLive = course.data_source === "live";
-              // For the course list preview, use selectedCourseTeeTimes only for the selected course;
-              // for other courses we don't have per-course data loaded (they're fetched on demand).
+              const isSaved = savedCourseIds.has(course.id);
               const courseTeeTimes =
                 course.id === selectedCourse?.id ? selectedCourseTeeTimes : [];
               const previewSlots = courseTeeTimes
@@ -389,6 +518,15 @@ function HomePage() {
                       loading="lazy"
                       className="h-full w-full object-cover"
                     />
+                    {/* Bookmark button overlaid on image */}
+                    <button
+                      onClick={() => handleToggleSave(course.id)}
+                      disabled={savingCourseId === course.id}
+                      aria-label={isSaved ? "Remove from saved" : "Save course"}
+                      className="absolute right-3 top-3 grid size-8 place-items-center rounded-full bg-white/90 text-ink shadow-sm transition hover:bg-white disabled:opacity-50"
+                    >
+                      <Bookmark className={`size-4 ${isSaved ? "fill-fairway text-fairway" : "text-ink-soft"}`} />
+                    </button>
                   </div>
                   <div className="p-5">
                     <div className="flex items-start justify-between gap-3">
@@ -456,6 +594,7 @@ function HomePage() {
               );
             })}
           </div>
+          )}
         </section>
 
         <section className="pb-28">
@@ -597,11 +736,12 @@ function HomePage() {
             </div>
             <div className="flex shrink-0 items-center gap-2">
               <button
-                disabled
-                title="Coming soon"
-                className="cursor-not-allowed rounded-full px-4 py-2.5 text-sm font-medium text-fairway ring-1 ring-fairway/20 opacity-50"
+                onClick={() => handleToggleSave(selectedCourse.id)}
+                disabled={savingCourseId === selectedCourse.id}
+                className="flex items-center gap-1.5 rounded-full px-4 py-2.5 text-sm font-medium text-fairway ring-1 ring-fairway/20 hover:bg-fairway/5 disabled:opacity-50"
               >
-                Save
+                <Bookmark className={`size-3.5 ${savedCourseIds.has(selectedCourse.id) ? "fill-fairway" : ""}`} />
+                {savedCourseIds.has(selectedCourse.id) ? "Saved" : "Save"}
               </button>
               <button
                 onClick={handleBook}

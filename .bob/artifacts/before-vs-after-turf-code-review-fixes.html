@@ -1,0 +1,489 @@
+
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Before vs After — Turf Code Review Fixes</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, "Segoe UI", system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.6;
+    color: #1f2328;
+    background: #ffffff;
+    padding: 32px 20px 48px;
+  }
+  .page { max-width: 900px; margin: 0 auto; }
+  h1 { font-size: 20px; font-weight: 600; margin-bottom: 4px; }
+  .subtitle { color: #57606a; font-size: 13px; margin-bottom: 28px; }
+  .stat-row {
+    display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 32px;
+  }
+  .stat {
+    background: #f7f8fa; border: 1px solid #e5e7eb; border-radius: 8px;
+    padding: 12px 18px; flex: 1; min-width: 120px;
+  }
+  .stat-num { font-size: 22px; font-weight: 600; }
+  .stat-label { font-size: 12px; color: #57606a; margin-top: 2px; }
+  .stat-num.red { color: #cf222e; }
+  .stat-num.yellow { color: #9a6700; }
+  .stat-num.orange { color: #bc4c00; }
+  .stat-num.blue { color: #3b82d4; }
+  .stat-num.green { color: #1a7f37; }
+
+  .section-title {
+    font-size: 13px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.08em; color: #57606a; margin: 28px 0 10px;
+    border-bottom: 1px solid #e5e7eb; padding-bottom: 6px;
+  }
+
+  .diff-card {
+    border: 1px solid #e5e7eb; border-radius: 10px;
+    overflow: hidden; margin-bottom: 16px;
+  }
+  .diff-header {
+    display: flex; align-items: center; justify-content: space-between;
+    background: #f7f8fa; padding: 10px 14px;
+    border-bottom: 1px solid #e5e7eb; gap: 8px;
+  }
+  .diff-header-left { display: flex; align-items: center; gap: 8px; }
+  .diff-file {
+    font-family: "SFMono-Regular", Consolas, monospace; font-size: 12px;
+    color: #1f2328; font-weight: 600;
+  }
+  .badge {
+    font-size: 11px; font-weight: 600; padding: 2px 8px;
+    border-radius: 20px; white-space: nowrap;
+  }
+  .badge-red    { background: #ffebe9; color: #cf222e; }
+  .badge-yellow { background: #fff8c5; color: #9a6700; }
+  .badge-orange { background: #fff1e5; color: #bc4c00; }
+  .badge-blue   { background: #ddf4ff; color: #0969da; }
+  .badge-green  { background: #dafbe1; color: #1a7f37; }
+
+  .diff-body { display: grid; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 600px) { .diff-body { grid-template-columns: 1fr; } }
+  .diff-side { padding: 12px 14px; }
+  .diff-side + .diff-side { border-left: 1px solid #e5e7eb; }
+  .diff-label {
+    font-size: 11px; font-weight: 600; text-transform: uppercase;
+    letter-spacing: 0.06em; margin-bottom: 8px;
+  }
+  .label-before { color: #cf222e; }
+  .label-after  { color: #1a7f37; }
+
+  pre {
+    font-family: "SFMono-Regular", Consolas, monospace;
+    font-size: 11.5px; line-height: 1.55;
+    white-space: pre-wrap; word-break: break-word;
+    background: none; border: none;
+  }
+  .del { background: #ffebe9; color: #cf222e; display: block; border-radius: 2px; }
+  .add { background: #dafbe1; color: #1a7f37; display: block; border-radius: 2px; }
+  .ctx { color: #57606a; }
+
+  .new-file-card {
+    border: 1px solid #e5e7eb; border-radius: 10px;
+    overflow: hidden; margin-bottom: 12px;
+  }
+  .new-file-header {
+    background: #f7f8fa; padding: 10px 14px;
+    border-bottom: 1px solid #e5e7eb;
+    display: flex; align-items: center; gap: 8px;
+  }
+  .new-file-body { padding: 12px 14px; }
+  .new-file-body p { color: #57606a; font-size: 13px; line-height: 1.6; }
+  .new-file-body p + p { margin-top: 6px; }
+
+  footer {
+    margin-top: 48px; padding-top: 16px;
+    border-top: 1px solid #e5e7eb;
+    text-align: center; font-size: 12px; color: #57606a;
+  }
+</style>
+</head>
+<body>
+<div class="page">
+
+  <h1>Before vs After — Turf Code Review Fixes</h1>
+  <p class="subtitle">11 issues fixed · 4 files changed · 4 new files added · net −3 lines</p>
+
+  <div class="stat-row">
+    <div class="stat"><div class="stat-num red">3</div><div class="stat-label">🔴 Bugs fixed</div></div>
+    <div class="stat"><div class="stat-num yellow">4</div><div class="stat-label">🟡 Logic/UX fixed</div></div>
+    <div class="stat"><div class="stat-num orange">3</div><div class="stat-label">🟠 Quality/A11y fixed</div></div>
+    <div class="stat"><div class="stat-num blue">1</div><div class="stat-label">🔵 Security fixed</div></div>
+    <div class="stat"><div class="stat-num green">4</div><div class="stat-label">New files added</div></div>
+  </div>
+
+
+  
+  <div class="section-title">Changed Files</div>
+
+  
+  <div class="diff-card">
+    <div class="diff-header">
+      <div class="diff-header-left">
+        <span class="diff-file">src/lib/tee-times.functions.ts</span>
+        <span class="badge badge-red">#1 Race condition</span>
+        <span class="badge badge-blue">#8 Cached client</span>
+      </div>
+    </div>
+    <div class="diff-body">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">function createPublishableClient() {</span>
+<span class="del">  // recreated on EVERY request</span>
+<span class="del">  const key = process.env[…];</span>
+<span class="del">  return createClient(url, key, {…});</span>
+<span class="del">}</span>
+<span class="ctx"> </span>
+<span class="del">// 3 separate round-trips — race condition:</span>
+<span class="del">// 1. SELECT available_spots</span>
+<span class="del">// 2. INSERT booking</span>
+<span class="del">// 3. UPDATE available_spots</span>
+<span class="del">// Another request can slip in between 1 and 3</span>
+<span class="del">const { data: teeTime } = await supabase</span>
+<span class="del">  .from('tee_times').select(…).single();</span>
+<span class="del">// validate…</span>
+<span class="del">await supabase.from('bookings').insert(…);</span>
+<span class="del">await supabase.from('tee_times').update(…);</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">import { getPublishableClient }</span>
+<span class="add">  from "@/lib/supabase-server";</span>
+<span class="add">// module-level cached — one instance</span>
+<span class="add">// for the lifetime of the server process</span>
+<span class="ctx"> </span>
+<span class="add">// Single atomic Postgres RPC —</span>
+<span class="add">// decrement + insert in one transaction.</span>
+<span class="add">// No race condition possible.</span>
+<span class="add">const { data: booking, error } = await supabase</span>
+<span class="add">  .rpc('book_tee_time', {</span>
+<span class="add">    p_tee_time_id: data.teeTimeId,</span>
+<span class="add">    p_user_id: userId,</span>
+<span class="add">    p_players: data.players,</span>
+<span class="add">  }).single();</span></pre>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="diff-card">
+    <div class="diff-header">
+      <div class="diff-header-left">
+        <span class="diff-file">src/integrations/supabase/auth-middleware.ts</span>
+        <span class="badge badge-blue">#12 Dedup fetch logic</span>
+      </div>
+    </div>
+    <div class="diff-body">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">// Local copy of header-manipulation logic</span>
+<span class="del">// (identical to tee-times.functions.ts</span>
+<span class="del">// and client.server.ts — 3 copies total)</span>
+<span class="del">function isNewSupabaseApiKey(v) {…}</span>
+<span class="del">function createSupabaseFetch(key) {</span>
+<span class="del">  return (input, init) =&gt; {</span>
+<span class="del">    // 15 lines of header logic</span>
+<span class="del">  };</span>
+<span class="del">}</span>
+<span class="ctx"> </span>
+<span class="ctx">fetch: createSupabaseFetch(KEY)</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">import { makeSupabaseFetch }</span>
+<span class="add">  from '@/lib/supabase-server';</span>
+<span class="add">// Single source of truth.</span>
+<span class="add">// Shared by auth-middleware,</span>
+<span class="add">// tee-times.functions, and</span>
+<span class="add">// the publishable client.</span>
+<span class="ctx"> </span>
+<span class="ctx">fetch: makeSupabaseFetch(KEY)</span></pre>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="diff-card">
+    <div class="diff-header">
+      <div class="diff-header-left">
+        <span class="diff-file">src/integrations/supabase/types.ts</span>
+        <span class="badge badge-red">#2 Timezone column</span>
+      </div>
+    </div>
+    <div class="diff-body">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="ctx">courses Row: {</span>
+<span class="ctx">  name: string</span>
+<span class="ctx">  par: number | null</span>
+<span class="ctx">  price_from: number | null</span>
+<span class="del">  // no timezone field</span>
+<span class="ctx">  yards: number | null</span>
+<span class="ctx">}</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="ctx">courses Row: {</span>
+<span class="ctx">  name: string</span>
+<span class="ctx">  par: number | null</span>
+<span class="ctx">  price_from: number | null</span>
+<span class="add">  timezone: string</span>
+<span class="ctx">  yards: number | null</span>
+<span class="ctx">}</span></pre>
+      </div>
+    </div>
+  </div>
+
+  
+  <div class="diff-card">
+    <div class="diff-header">
+      <div class="diff-header-left">
+        <span class="diff-file">src/routes/index.tsx</span>
+        <span class="badge badge-red">#2 Timezone</span>
+        <span class="badge badge-red">#3 Players</span>
+        <span class="badge badge-yellow">#4 Search</span>
+        <span class="badge badge-yellow">#5 Dead buttons</span>
+        <span class="badge badge-yellow">#7 Over-fetch</span>
+        <span class="badge badge-orange">#9 Aria</span>
+        <span class="badge badge-orange">#10 Nulls</span>
+      </div>
+    </div>
+
+    
+    <div style="background:#f7f8fa;padding:8px 14px;font-size:12px;font-weight:600;color:#57606a;border-top:1px solid #e5e7eb">#2 — Hardcoded timezone → per-course timezone</div>
+    <div class="diff-body" style="border-top:1px solid #e5e7eb">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">const timeFormatter = new Intl.DateTimeFormat(</span>
+<span class="del">  "en-US", {</span>
+<span class="del">    timeZone: "America/Chicago", // hardcoded</span>
+<span class="del">  }</span>
+<span class="del">);</span>
+<span class="del">function formatTime(iso: string) {</span>
+<span class="del">  return timeFormatter.format(parseISO(iso));</span>
+<span class="del">}</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">const timeFormatterCache = new Map();</span>
+<span class="add">function getTimeFormatter(timezone: string) {</span>
+<span class="add">  // cached per-timezone</span>
+<span class="add">  if (!timeFormatterCache.has(timezone)) {</span>
+<span class="add">    timeFormatterCache.set(timezone,</span>
+<span class="add">      new Intl.DateTimeFormat("en-US", { timeZone: timezone })</span>
+<span class="add">    );</span>
+<span class="add">  }</span>
+<span class="add">  return timeFormatterCache.get(timezone);</span>
+<span class="add">}</span>
+<span class="add">function formatTime(iso, timezone = "America/Chicago") {</span>
+<span class="add">  return getTimeFormatter(timezone).format(parseISO(iso));</span>
+<span class="add">}</span>
+<span class="ctx">// called as: formatTime(slot.start_time, course.timezone)</span></pre>
+      </div>
+    </div>
+
+    
+    <div style="background:#f7f8fa;padding:8px 14px;font-size:12px;font-weight:600;color:#57606a;border-top:1px solid #e5e7eb">#3 — Players not validated against available spots</div>
+    <div class="diff-body" style="border-top:1px solid #e5e7eb">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">// No validation — user could select 4</span>
+<span class="del">// players on a slot with 1 spot left.</span>
+<span class="del">// Server would reject with a generic error.</span>
+<span class="ctx">{[1,2,3,4].map((n) =&gt; (</span>
+<span class="del">  &lt;button onClick={() =&gt; setPlayers(n)}&gt;</span>
+<span class="del">    {n}</span>
+<span class="del">  &lt;/button&gt;</span>
+<span class="ctx">))}</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">const maxPlayers = selectedTeeTime?.available_spots ?? 4;</span>
+<span class="ctx">{[1,2,3,4].map((n) =&gt; {</span>
+<span class="add">  const unavailable = n &gt; maxPlayers;</span>
+<span class="ctx">  return (</span>
+<span class="add">    &lt;button disabled={unavailable}</span>
+<span class="add">      aria-label={`${n} player(s)`}</span>
+<span class="add">      aria-pressed={players === n}&gt;</span>
+<span class="ctx">      {n}</span>
+<span class="ctx">    &lt;/button&gt;</span>
+<span class="ctx">  );</span>
+<span class="ctx">})}</span>
+<span class="add">// also clamps on slot selection:</span>
+<span class="add">// if (players &gt; slot.available_spots)</span>
+<span class="add">//   setPlayers(Math.max(1, slot.available_spots))</span></pre>
+      </div>
+    </div>
+
+    
+    <div style="background:#f7f8fa;padding:8px 14px;font-size:12px;font-weight:600;color:#57606a;border-top:1px solid #e5e7eb">#4 — Search input was decorative (no-op)</div>
+    <div class="diff-body" style="border-top:1px solid #e5e7eb">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">// No state, no onChange, no effect</span>
+<span class="del">&lt;input type="text"</span>
+<span class="del">  placeholder="City or course" /&gt;</span>
+<span class="ctx"> </span>
+<span class="del">// courses rendered directly</span>
+<span class="del">{courses.map((course) =&gt; …)}</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">const [courseSearch, setCourseSearch] = useState("");</span>
+<span class="add">const filteredCourses = useMemo(() =&gt; {</span>
+<span class="add">  const q = courseSearch.trim().toLowerCase();</span>
+<span class="add">  if (!q) return courses;</span>
+<span class="add">  return courses.filter(c =&gt;</span>
+<span class="add">    c.name.toLowerCase().includes(q) ||</span>
+<span class="add">    (c.location ?? "").toLowerCase().includes(q)</span>
+<span class="add">  );</span>
+<span class="add">}, [courses, courseSearch]);</span>
+<span class="ctx"> </span>
+<span class="add">&lt;input value={courseSearch}</span>
+<span class="add">  onChange={(e) =&gt; setCourseSearch(e.target.value)}</span>
+<span class="add">  aria-label="Filter by city or course name" /&gt;</span>
+<span class="ctx"> </span>
+<span class="add">{filteredCourses.map((course) =&gt; …)}</span></pre>
+      </div>
+    </div>
+
+    
+    <div style="background:#f7f8fa;padding:8px 14px;font-size:12px;font-weight:600;color:#57606a;border-top:1px solid #e5e7eb">#5 — Dead buttons (Save list, Map, Save, Save to my list)</div>
+    <div class="diff-body" style="border-top:1px solid #e5e7eb">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">// No onClick, no disabled, no feedback</span>
+<span class="del">&lt;button className="… hover:-translate-y-[1px]"&gt;</span>
+<span class="del">  Save list</span>
+<span class="del">&lt;/button&gt;</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">&lt;button</span>
+<span class="add">  disabled</span>
+<span class="add">  title="Coming soon"</span>
+<span class="add">  className="cursor-not-allowed … opacity-50"</span>
+<span class="add">&gt;</span>
+<span class="ctx">  Save list</span>
+<span class="ctx">&lt;/button&gt;</span>
+<span class="ctx">// same pattern applied to: Map, Save,</span>
+<span class="ctx">// Save to my list</span></pre>
+      </div>
+    </div>
+
+    
+    <div style="background:#f7f8fa;padding:8px 14px;font-size:12px;font-weight:600;color:#57606a;border-top:1px solid #e5e7eb">#7 — Fetching all courses' tee times, filtering client-side</div>
+    <div class="diff-body" style="border-top:1px solid #e5e7eb">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">// Fetched ALL tee times for the day,</span>
+<span class="del">// then filtered by course on the client.</span>
+<span class="del">teeTimesQueryOptions(selectedDate)</span>
+<span class="del">// queryKey: ["tee-times", "2026-09-10"]</span>
+<span class="del">// courseId never passed to server</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">// Fetches only the selected course's times.</span>
+<span class="add">// Each course+date combo cached separately.</span>
+<span class="add">teeTimesQueryOptions(selectedDate, selectedCourse?.id)</span>
+<span class="add">// queryKey: ["tee-times", "2026-09-10", courseId]</span>
+<span class="add">// server applies: .eq('course_id', courseId)</span></pre>
+      </div>
+    </div>
+
+    
+    <div style="background:#f7f8fa;padding:8px 14px;font-size:12px;font-weight:600;color:#57606a;border-top:1px solid #e5e7eb">#10 — Null display: "from $null", "null mi"</div>
+    <div class="diff-body" style="border-top:1px solid #e5e7eb">
+      <div class="diff-side">
+        <div class="diff-label label-before">Before</div>
+        <pre><span class="del">from ${course.price_from}</span>
+<span class="del">// → "from $null" when null</span>
+<span class="ctx"> </span>
+<span class="del">{course.distance_miles} mi</span>
+<span class="del">// → "null mi" when null</span>
+<span class="ctx"> </span>
+<span class="del">Rates from ${selectedCourse?.price_from}</span>
+<span class="del">// → "Rates from $null"</span></pre>
+      </div>
+      <div class="diff-side">
+        <div class="diff-label label-after">After</div>
+        <pre><span class="add">{course.price_from != null</span>
+<span class="add">  ? `from $${course.price_from}` : "—"}</span>
+<span class="ctx"> </span>
+<span class="add">{course.distance_miles ?? "?"} mi</span>
+<span class="ctx"> </span>
+<span class="add">{selectedCourse?.price_from != null</span>
+<span class="add">  ? `Rates from $${selectedCourse.price_from}`</span>
+<span class="add">  : ""}</span></pre>
+      </div>
+    </div>
+  </div>
+
+
+  
+  <div class="section-title">New Files Added</div>
+
+  <div class="new-file-card">
+    <div class="new-file-header">
+      <span class="badge badge-red">NEW</span>
+      <span class="diff-file">src/lib/supabase-server.ts</span>
+    </div>
+    <div class="new-file-body">
+      <p>Exports <code>makeSupabaseFetch(key)</code> — the opaque-key header stripping logic, extracted from 3 separate copies that existed in <code>auth-middleware.ts</code>, <code>tee-times.functions.ts</code>, and <code>client.server.ts</code>.</p>
+      <p>Also exports <code>getPublishableClient()</code> — a module-level cached Supabase client so a new instance isn't created on every server function call.</p>
+    </div>
+  </div>
+
+  <div class="new-file-card">
+    <div class="new-file-header">
+      <span class="badge badge-red">NEW MIGRATION</span>
+      <span class="diff-file">supabase/migrations/…_atomic_booking_rpc.sql</span>
+    </div>
+    <div class="new-file-body">
+      <p>Creates the <code>book_tee_time(p_tee_time_id, p_user_id, p_players)</code> Postgres function. Uses a single <code>UPDATE … WHERE available_spots &gt;= p_players</code> followed by an <code>INSERT INTO bookings</code>, all inside one transaction.</p>
+      <p>If the spot count check fails, raises <code>P0001</code> with "Not enough spots available". Callable only by <code>authenticated</code> role.</p>
+    </div>
+  </div>
+
+  <div class="new-file-card">
+    <div class="new-file-header">
+      <span class="badge badge-yellow">NEW MIGRATION</span>
+      <span class="diff-file">supabase/migrations/…_courses_timezone.sql</span>
+    </div>
+    <div class="new-file-body">
+      <p>Adds <code>timezone text NOT NULL DEFAULT 'America/Chicago'</code> to the <code>courses</code> table. Back-fills all existing rows to <code>America/Chicago</code>.</p>
+    </div>
+  </div>
+
+  <div class="new-file-card">
+    <div class="new-file-header">
+      <span class="badge badge-yellow">NEW MIGRATION</span>
+      <span class="diff-file">supabase/migrations/…_rolling_tee_times.sql</span>
+    </div>
+    <div class="new-file-body">
+      <p>Creates <code>refresh_tee_times()</code> — deletes stale/future-beyond-7-days slots and re-seeds a rolling 7-day window, idempotently. Runs immediately at migration time.</p>
+      <p>Schedule this daily (pg_cron or Supabase Edge Function cron) so the app always has current availability. Previously, all slots were seeded once at migration time and expired after a week.</p>
+    </div>
+  </div>
+
+  <div class="new-file-card">
+    <div class="new-file-header">
+      <span class="badge badge-blue">NEW MIGRATION</span>
+      <span class="diff-file">supabase/migrations/…_tee_times_rls_update.sql</span>
+    </div>
+    <div class="new-file-body">
+      <p>Adds an explicit RLS <code>UPDATE</code> policy on <code>tee_times</code> that blocks direct mutations from authenticated clients (<code>USING (false)</code>). All writes must go through the <code>book_tee_time()</code> SECURITY DEFINER RPC which bypasses RLS intentionally.</p>
+    </div>
+  </div>
+
+</div>
+
+<footer>Made with IBM Bob</footer>
+</body>
+</html>
