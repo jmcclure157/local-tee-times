@@ -63,6 +63,7 @@ export type Database = {
           name: string
           par: number | null
           price_from: number | null
+          timezone: string
           yards: number | null
         }
         Insert: {
@@ -78,6 +79,7 @@ export type Database = {
           name: string
           par?: number | null
           price_from?: number | null
+          timezone?: string
           yards?: number | null
         }
         Update: {
@@ -93,6 +95,7 @@ export type Database = {
           name?: string
           par?: number | null
           price_from?: number | null
+          timezone?: string
           yards?: number | null
         }
         Relationships: []

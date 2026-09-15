@@ -33,11 +33,15 @@ const coursesQueryOptions = queryOptions({
   queryFn: () => listCourses(),
 });
 
-function teeTimesQueryOptions(date: Date) {
+// #7: include courseId so only the selected course's times are fetched,
+// and each course/date pair is cached independently.
+function teeTimesQueryOptions(date: Date, courseId: string | null) {
   return queryOptions({
-    queryKey: ["tee-times", format(date, "yyyy-MM-dd")],
+    queryKey: ["tee-times", format(date, "yyyy-MM-dd"), courseId ?? "all"],
     queryFn: () =>
-      listTeeTimesForDate({ data: { date: format(date, "yyyy-MM-dd") } }),
+      listTeeTimesForDate({
+        data: { date: format(date, "yyyy-MM-dd"), courseId: courseId ?? undefined },
+      }),
   });
 }
 
@@ -77,25 +81,37 @@ function HomePage() {
   );
   const [players, setPlayers] = useState(1);
   const [bookingInProgress, setBookingInProgress] = useState(false);
+  // #4: search filter state
+  const [courseSearch, setCourseSearch] = useState("");
 
   const selectedCourse = useMemo(
     () => courses.find((c) => c.id === selectedCourseId) ?? courses[0],
     [courses, selectedCourseId]
   );
 
-  const { data: allTeeTimes = [] } = useSuspenseQuery(
-    teeTimesQueryOptions(selectedDate)
+  // #7: fetch only the selected course's tee times
+  const { data: selectedCourseTeeTimes = [] } = useSuspenseQuery(
+    teeTimesQueryOptions(selectedDate, selectedCourse?.id ?? null)
   );
 
-  const selectedCourseTeeTimes = useMemo(
-    () => allTeeTimes.filter((t) => t.course_id === selectedCourse?.id),
-    [allTeeTimes, selectedCourse]
-  );
+  // #4: filtered course list based on search input
+  const filteredCourses = useMemo(() => {
+    const q = courseSearch.trim().toLowerCase();
+    if (!q) return courses;
+    return courses.filter(
+      (c) =>
+        c.name.toLowerCase().includes(q) ||
+        (c.location ?? "").toLowerCase().includes(q)
+    );
+  }, [courses, courseSearch]);
 
   const selectedTeeTime = useMemo(
     () => selectedCourseTeeTimes.find((t) => t.id === selectedTeeTimeId),
     [selectedCourseTeeTimes, selectedTeeTimeId]
   );
+
+  // #3: clamp players to available spots whenever the selection changes
+  const maxPlayers = selectedTeeTime?.available_spots ?? 4;
 
   const createBookingFn = useServerFn(createBooking);
 
@@ -110,6 +126,7 @@ function HomePage() {
   const handleCourseSelect = (courseId: string) => {
     setSelectedCourseId(courseId);
     setSelectedTeeTimeId(null);
+    setPlayers(1);
   };
 
   const handleBook = async () => {
@@ -130,11 +147,12 @@ function HomePage() {
       });
       toast.success("Tee time booked", {
         description: `You're set for ${selectedCourse?.name} at ${formatTime(
-          selectedTeeTime.start_time
+          selectedTeeTime.start_time,
+          selectedCourse?.timezone
         )}.`,
       });
       queryClient.invalidateQueries({
-        queryKey: ["tee-times", format(selectedDate, "yyyy-MM-dd")],
+        queryKey: ["tee-times", format(selectedDate, "yyyy-MM-dd"), selectedCourse?.id ?? "all"],
       });
       setSelectedTeeTimeId(null);
     } catch (error) {
@@ -147,10 +165,7 @@ function HomePage() {
     }
   };
 
-  const openSlotsCount = useMemo(
-    () => allTeeTimes.filter((t) => t.status !== "full").length,
-    [allTeeTimes]
-  );
+  const openSlotsCount = selectedCourseTeeTimes.filter((t) => t.status !== "full").length;
 
   return (
     <div className="min-h-screen bg-paper font-sans text-ink antialiased">
@@ -172,7 +187,11 @@ function HomePage() {
             <span className="cursor-not-allowed opacity-60">Saved</span>
           </nav>
           <div className="flex items-center gap-2 text-sm font-medium">
-            <button className="rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10 transition-transform hover:-translate-y-[1px]">
+            <button
+              disabled
+              title="Coming soon"
+              className="cursor-not-allowed rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10 opacity-50"
+            >
               Save list
             </button>
           </div>
@@ -196,6 +215,9 @@ function HomePage() {
                 <input
                   type="text"
                   placeholder="City or course"
+                  value={courseSearch}
+                  onChange={(e) => setCourseSearch(e.target.value)}
+                  aria-label="Filter by city or course name"
                   className="w-full bg-transparent text-sm outline-none placeholder:text-ink-soft/70"
                 />
               </div>
@@ -274,19 +296,27 @@ function HomePage() {
             <div className="mt-4 flex items-center justify-between rounded-xl bg-fairway-dark/60 px-4 py-3 text-sm">
               <span className="text-paper/70">Players</span>
               <div className="flex items-center gap-2">
-                {[1, 2, 3, 4].map((n) => (
-                  <button
-                    key={n}
-                    onClick={() => setPlayers(n)}
-                    className={`grid size-7 place-items-center rounded-full text-xs font-semibold transition ${
-                      players === n
-                        ? "bg-amber text-fairway-dark"
-                        : "bg-fairway-dark/60 text-paper hover:bg-fairway-dark"
-                    }`}
-                  >
-                    {n}
-                  </button>
-                ))}
+                {[1, 2, 3, 4].map((n) => {
+                  const unavailable = n > maxPlayers;
+                  return (
+                    <button
+                      key={n}
+                      onClick={() => setPlayers(n)}
+                      disabled={unavailable}
+                      aria-label={`${n} player${n !== 1 ? "s" : ""}`}
+                      aria-pressed={players === n}
+                      className={`grid size-7 place-items-center rounded-full text-xs font-semibold transition ${
+                        unavailable
+                          ? "cursor-not-allowed opacity-30 bg-fairway-dark/60 text-paper"
+                          : players === n
+                          ? "bg-amber text-fairway-dark"
+                          : "bg-fairway-dark/60 text-paper hover:bg-fairway-dark"
+                      }`}
+                    >
+                      {n}
+                    </button>
+                  );
+                })}
               </div>
             </div>
             <button
@@ -296,7 +326,11 @@ function HomePage() {
             >
               {bookingInProgress ? "Booking…" : "Confirm tee time"}
             </button>
-            <button className="mt-2 w-full rounded-full py-2 text-sm font-medium text-paper/70 hover:text-paper">
+            <button
+              disabled
+              title="Coming soon"
+              className="mt-2 w-full cursor-not-allowed rounded-full py-2 text-sm font-medium text-paper/40"
+            >
               Save to my list
             </button>
           </div>
@@ -312,7 +346,11 @@ function HomePage() {
                 <button className="bg-fairway px-4 py-1.5 text-xs font-semibold text-paper">
                   List
                 </button>
-                <button className="bg-white px-4 py-1.5 text-xs font-medium text-ink-soft">
+                <button
+                  disabled
+                  title="Coming soon"
+                  className="cursor-not-allowed bg-white px-4 py-1.5 text-xs font-medium text-ink-soft opacity-50"
+                >
                   Map
                 </button>
               </div>
@@ -322,12 +360,13 @@ function HomePage() {
             </div>
           </div>
           <div className="grid gap-5 md:grid-cols-3">
-            {courses.map((course, index) => {
+            {filteredCourses.map((course, index) => {
               const image = courseImage(index);
               const isLive = course.data_source === "live";
-              const courseTeeTimes = allTeeTimes.filter(
-                (t) => t.course_id === course.id
-              );
+              // For the course list preview, use selectedCourseTeeTimes only for the selected course;
+              // for other courses we don't have per-course data loaded (they're fetched on demand).
+              const courseTeeTimes =
+                course.id === selectedCourse?.id ? selectedCourseTeeTimes : [];
               const previewSlots = courseTeeTimes
                 .filter((t) => t.status !== "full")
                 .slice(0, 3);
@@ -367,7 +406,7 @@ function HomePage() {
                       </span>
                     </div>
                     <p className="mt-1 text-sm text-ink-soft">
-                      {course.location} · {course.distance_miles} mi · Par{" "}
+                      {course.location} · {course.distance_miles ?? "?"} mi · Par{" "}
                       {course.par ?? "—"} ·{" "}
                       {(course.yards ?? 0).toLocaleString()} yds
                     </p>
@@ -378,7 +417,7 @@ function HomePage() {
                             key={slot.id}
                             className="rounded-md bg-paper px-2.5 py-1 text-xs font-medium"
                           >
-                            {formatTime(slot.start_time)}
+                            {formatTime(slot.start_time, course.timezone)}
                           </span>
                         ))
                       ) : (
@@ -390,7 +429,7 @@ function HomePage() {
                     </div>
                     <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
                       <span className="text-sm font-semibold">
-                        from ${course.price_from}
+                        {course.price_from != null ? `from $${course.price_from}` : "—"}
                       </span>
                       {isLive ? (
                         <button
@@ -430,7 +469,9 @@ function HomePage() {
               </p>
             </div>
             <span className="text-xs font-medium text-ink-soft">
-              Rates from ${selectedCourse?.price_from}
+              {selectedCourse?.price_from != null
+                ? `Rates from $${selectedCourse.price_from}`
+                : ""}
             </span>
           </div>
 
@@ -465,7 +506,7 @@ function HomePage() {
             })}
           </div>
 
-          {selectedCourseTeeTimes.length === 0 ? (
+          {selectedCourse?.data_source !== "live" || selectedCourseTeeTimes.length === 0 ? (
             <div className="rounded-2xl bg-white px-6 py-12 text-center ring-1 ring-line">
               <p className="font-medium">
                 Live availability isn't connected for {selectedCourse?.name} yet.
@@ -496,7 +537,13 @@ function HomePage() {
                   <button
                     key={slot.id}
                     disabled={full}
-                    onClick={() => setSelectedTeeTimeId(slot.id)}
+                    onClick={() => {
+                      setSelectedTeeTimeId(slot.id);
+                      // #3: clamp players if the newly selected slot has fewer spots
+                      if (players > slot.available_spots) setPlayers(Math.max(1, slot.available_spots));
+                    }}
+                    aria-pressed={selected}
+                    aria-label={`${formatTime(slot.start_time, selectedCourse?.timezone)}, ${full ? "full" : `${slot.available_spots} spots left`}`}
                     className={`rounded-xl py-4 text-center transition ${
                       selected
                         ? "bg-amber text-fairway-dark ring-1 ring-fairway-dark/20"
@@ -506,7 +553,7 @@ function HomePage() {
                     }`}
                   >
                     <div className="font-display text-lg font-semibold">
-                      {formatTime(slot.start_time)}
+                      {formatTime(slot.start_time, selectedCourse?.timezone)}
                     </div>
                     <div
                       className={`text-[11px] uppercase tracking-wider ${
@@ -539,7 +586,7 @@ function HomePage() {
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold">
                 {selectedCourse.name} · {format(selectedDate, "EEE d")} ·{" "}
-                {formatTime(selectedTeeTime.start_time)}
+                {formatTime(selectedTeeTime.start_time, selectedCourse.timezone)}
               </div>
               <div className="text-xs text-ink-soft">
                 {players} player{players !== 1 ? "s" : ""} · ${
@@ -549,7 +596,11 @@ function HomePage() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button className="rounded-full px-4 py-2.5 text-sm font-medium text-fairway ring-1 ring-fairway/20">
+              <button
+                disabled
+                title="Coming soon"
+                className="cursor-not-allowed rounded-full px-4 py-2.5 text-sm font-medium text-fairway ring-1 ring-fairway/20 opacity-50"
+              >
                 Save
               </button>
               <button
@@ -567,13 +618,24 @@ function HomePage() {
   );
 }
 
-const timeFormatter = new Intl.DateTimeFormat("en-US", {
-  hour: "numeric",
-  minute: "2-digit",
-  hour12: true,
-  timeZone: "America/Chicago",
-});
+// #2: formatTime now accepts a timezone so each course renders in its local time.
+// The formatter is created per-timezone and cached to avoid recreating on every render.
+const timeFormatterCache = new Map<string, Intl.DateTimeFormat>();
 
-function formatTime(iso: string) {
-  return timeFormatter.format(parseISO(iso)).replace(":00", "").toLowerCase();
+function getTimeFormatter(timezone: string) {
+  let fmt = timeFormatterCache.get(timezone);
+  if (!fmt) {
+    fmt = new Intl.DateTimeFormat("en-US", {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+      timeZone: timezone,
+    });
+    timeFormatterCache.set(timezone, fmt);
+  }
+  return fmt;
+}
+
+function formatTime(iso: string, timezone = "America/Chicago") {
+  return getTimeFormatter(timezone).format(parseISO(iso)).replace(":00", "").toLowerCase();
 }

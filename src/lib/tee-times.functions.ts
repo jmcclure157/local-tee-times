@@ -1,32 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { createClient } from "@supabase/supabase-js";
 
 import { requireSupabaseAuth } from "@/integrations/supabase/auth-middleware";
-import type { Database } from "@/integrations/supabase/types";
-
-function createPublishableClient() {
-  const key = process.env['SUPABASE_PUBLISHABLE_KEY']!;
-  const url = process.env['SUPABASE_URL']!;
-  return createClient<Database>(url, key, {
-    auth: {
-      persistSession: false,
-      autoRefreshToken: false,
-    },
-    global: {
-      fetch: (input, init) => {
-        const h = new Headers(init?.headers);
-        if (key.startsWith('sb_') && h.get('Authorization') === `Bearer ${key}`) {
-          h.delete('Authorization');
-        }
-        h.set('apikey', key);
-        return fetch(input, { ...init, headers: h });
-      },
-    },
-  });
-}
+import { getPublishableClient } from "@/lib/supabase-server";
 
 export const listCourses = createServerFn({ method: "GET" }).handler(async () => {
-  const supabase = createPublishableClient();
+  const supabase = getPublishableClient();
   const { data, error } = await supabase
     .from('courses')
     .select('*')
@@ -38,7 +16,7 @@ export const listCourses = createServerFn({ method: "GET" }).handler(async () =>
 export const listTeeTimesForDate = createServerFn({ method: "GET" })
   .inputValidator((data: { courseId?: string; date?: string }) => data)
   .handler(async ({ data }) => {
-    const supabase = createPublishableClient();
+    const supabase = getPublishableClient();
     const targetDate = data.date ? new Date(data.date) : new Date();
     const start = new Date(targetDate);
     start.setHours(0, 0, 0, 0);
@@ -67,36 +45,16 @@ export const createBooking = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { supabase, userId } = context;
 
-    const { data: teeTime, error: teeTimeError } = await supabase
-      .from('tee_times')
-      .select('available_spots, status')
-      .eq('id', data.teeTimeId)
-      .single();
-    if (teeTimeError) throw teeTimeError;
-    if (!teeTime || teeTime.available_spots < data.players || teeTime.status === 'full') {
-      throw new Error('Not enough spots available');
-    }
-
+    // Single atomic RPC — decrements available_spots and inserts the booking
+    // in one transaction, preventing double-booking races.
     const { data: booking, error } = await supabase
-      .from('bookings')
-      .insert({
-        tee_time_id: data.teeTimeId,
-        user_id: userId,
-        players: data.players,
+      .rpc('book_tee_time', {
+        p_tee_time_id: data.teeTimeId,
+        p_user_id: userId,
+        p_players: data.players,
       })
-      .select()
       .single();
-    if (error) throw error;
-
-    const newSpots = teeTime.available_spots - data.players;
-    const { error: updateError } = await supabase
-      .from('tee_times')
-      .update({
-        available_spots: newSpots,
-        status: newSpots === 0 ? 'full' : 'available',
-      })
-      .eq('id', data.teeTimeId);
-    if (updateError) throw updateError;
+    if (error) throw new Error(error.message);
 
     return booking;
   });
