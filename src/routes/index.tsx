@@ -40,8 +40,11 @@ function teeTimesQueryOptions(date: Date, courseId: string | null) {
     queryKey: ["tee-times", format(date, "yyyy-MM-dd"), courseId ?? "all"],
     queryFn: () =>
       listTeeTimesForDate({
-        data: { date: format(date, "yyyy-MM-dd"), courseId: courseId ?? undefined },
+        data: courseId
+          ? { date: format(date, "yyyy-MM-dd"), courseId }
+          : { date: format(date, "yyyy-MM-dd") },
       }),
+
   });
 }
 
