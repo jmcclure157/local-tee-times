@@ -432,30 +432,28 @@ function HomePage() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-                      <span className="text-sm font-semibold">
-                        {course.price_from != null ? `from $${course.price_from}` : "—"}
-                      </span>
-                      {isLive ? (
-                        <button
-                          onClick={() => handleCourseSelect(course.id)}
-                          className="text-sm font-medium text-fairway"
-                        >
-                          See times
-                          <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
-                        </button>
-                      ) : (
-                        <a
-                          href={course.booking_url ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-fairway"
-                        >
-                          Book on course site
-                          <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
-                        </a>
-                      )}
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+                      <button
+                        onClick={() => handleCourseSelect(course.id)}
+                        className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                          course.id === selectedCourse?.id
+                            ? "bg-fairway text-paper"
+                            : "text-fairway ring-1 ring-line hover:bg-paper"
+                        }`}
+                      >
+                        {course.id === selectedCourse?.id ? "Selected" : "Select"}
+                      </button>
+                      <a
+                        href={course.booking_url ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-fairway"
+                      >
+                        {isLive ? "See times" : "Book on course site"}
+                        <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
+                      </a>
                     </div>
+
                   </div>
                 </article>
               );
