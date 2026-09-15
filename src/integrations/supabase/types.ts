@@ -143,7 +143,23 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      book_tee_time: {
+        Args: { p_players: number; p_tee_time_id: string; p_user_id: string }
+        Returns: {
+          created_at: string | null
+          id: string
+          players: number
+          status: string | null
+          tee_time_id: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "bookings"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
     }
     Enums: {
       [_ in never]: never
