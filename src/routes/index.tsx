@@ -40,8 +40,11 @@ function teeTimesQueryOptions(date: Date, courseId: string | null) {
     queryKey: ["tee-times", format(date, "yyyy-MM-dd"), courseId ?? "all"],
     queryFn: () =>
       listTeeTimesForDate({
-        data: { date: format(date, "yyyy-MM-dd"), courseId: courseId ?? undefined },
+        data: courseId
+          ? { date: format(date, "yyyy-MM-dd"), courseId }
+          : { date: format(date, "yyyy-MM-dd") },
       }),
+
   });
 }
 
@@ -147,9 +150,7 @@ function HomePage() {
       });
       toast.success("Tee time booked", {
         description: `You're set for ${selectedCourse?.name} at ${formatTime(
-          selectedTeeTime.start_time,
-          selectedCourse?.timezone
-        )}.`,
+          selectedTeeTime.start_time)}.`,
       });
       queryClient.invalidateQueries({
         queryKey: ["tee-times", format(selectedDate, "yyyy-MM-dd"), selectedCourse?.id ?? "all"],
@@ -187,14 +188,18 @@ function HomePage() {
             <span className="cursor-not-allowed opacity-60">Saved</span>
           </nav>
           <div className="flex items-center gap-2 text-sm font-medium">
-            <button
-              disabled
-              title="Coming soon"
-              className="cursor-not-allowed rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10 opacity-50"
-            >
-              Save list
-            </button>
+            {selectedCourse?.booking_url && (
+              <a
+                href={selectedCourse.booking_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10"
+              >
+                Book {selectedCourse.name.split(" ")[0]}
+              </a>
+            )}
           </div>
+
         </header>
 
         <section className="grid gap-8 border-b border-line py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
@@ -326,13 +331,17 @@ function HomePage() {
             >
               {bookingInProgress ? "Booking…" : "Confirm tee time"}
             </button>
-            <button
-              disabled
-              title="Coming soon"
-              className="mt-2 w-full cursor-not-allowed rounded-full py-2 text-sm font-medium text-paper/40"
-            >
-              Save to my list
-            </button>
+            {selectedCourse?.booking_url && (
+              <a
+                href={selectedCourse.booking_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 block w-full rounded-full py-2 text-center text-sm font-medium text-paper/80 underline-offset-4 hover:underline"
+              >
+                Open {selectedCourse.booking_platform ?? "course"} booking site
+              </a>
+            )}
+
           </div>
         </section>
 
@@ -342,18 +351,7 @@ function HomePage() {
               Nearby courses
             </h2>
             <div className="flex items-center gap-3">
-              <div className="flex overflow-hidden rounded-full ring-1 ring-line">
-                <button className="bg-fairway px-4 py-1.5 text-xs font-semibold text-paper">
-                  List
-                </button>
-                <button
-                  disabled
-                  title="Coming soon"
-                  className="cursor-not-allowed bg-white px-4 py-1.5 text-xs font-medium text-ink-soft opacity-50"
-                >
-                  Map
-                </button>
-              </div>
+
               <span className="hidden text-xs font-medium text-ink-soft sm:block">
                 Sort: Openings
               </span>
@@ -417,7 +415,7 @@ function HomePage() {
                             key={slot.id}
                             className="rounded-md bg-paper px-2.5 py-1 text-xs font-medium"
                           >
-                            {formatTime(slot.start_time, course.timezone)}
+                            {formatTime(slot.start_time)}
                           </span>
                         ))
                       ) : (
@@ -427,30 +425,28 @@ function HomePage() {
                         </span>
                       )}
                     </div>
-                    <div className="mt-4 flex items-center justify-between border-t border-line pt-4">
-                      <span className="text-sm font-semibold">
-                        {course.price_from != null ? `from $${course.price_from}` : "—"}
-                      </span>
-                      {isLive ? (
-                        <button
-                          onClick={() => handleCourseSelect(course.id)}
-                          className="text-sm font-medium text-fairway"
-                        >
-                          See times
-                          <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
-                        </button>
-                      ) : (
-                        <a
-                          href={course.booking_url ?? "#"}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="text-sm font-medium text-fairway"
-                        >
-                          Book on course site
-                          <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
-                        </a>
-                      )}
+                    <div className="mt-4 flex items-center justify-between gap-3 border-t border-line pt-4">
+                      <button
+                        onClick={() => handleCourseSelect(course.id)}
+                        className={`rounded-full px-3 py-1.5 text-sm font-medium transition ${
+                          course.id === selectedCourse?.id
+                            ? "bg-fairway text-paper"
+                            : "text-fairway ring-1 ring-line hover:bg-paper"
+                        }`}
+                      >
+                        {course.id === selectedCourse?.id ? "Selected" : "Select"}
+                      </button>
+                      <a
+                        href={course.booking_url ?? "#"}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-sm font-medium text-fairway"
+                      >
+                        {isLive ? "See times" : "Book on course site"}
+                        <ArrowRight className="ml-0.5 inline size-4 shrink-0" />
+                      </a>
                     </div>
+
                   </div>
                 </article>
               );
@@ -543,7 +539,7 @@ function HomePage() {
                       if (players > slot.available_spots) setPlayers(Math.max(1, slot.available_spots));
                     }}
                     aria-pressed={selected}
-                    aria-label={`${formatTime(slot.start_time, selectedCourse?.timezone)}, ${full ? "full" : `${slot.available_spots} spots left`}`}
+                    aria-label={`${formatTime(slot.start_time)}, ${full ? "full" : `${slot.available_spots} spots left`}`}
                     className={`rounded-xl py-4 text-center transition ${
                       selected
                         ? "bg-amber text-fairway-dark ring-1 ring-fairway-dark/20"
@@ -553,7 +549,7 @@ function HomePage() {
                     }`}
                   >
                     <div className="font-display text-lg font-semibold">
-                      {formatTime(slot.start_time, selectedCourse?.timezone)}
+                      {formatTime(slot.start_time)}
                     </div>
                     <div
                       className={`text-[11px] uppercase tracking-wider ${
@@ -586,7 +582,7 @@ function HomePage() {
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold">
                 {selectedCourse.name} · {format(selectedDate, "EEE d")} ·{" "}
-                {formatTime(selectedTeeTime.start_time, selectedCourse.timezone)}
+                {formatTime(selectedTeeTime.start_time)}
               </div>
               <div className="text-xs text-ink-soft">
                 {players} player{players !== 1 ? "s" : ""} · ${
@@ -596,13 +592,9 @@ function HomePage() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                disabled
-                title="Coming soon"
-                className="cursor-not-allowed rounded-full px-4 py-2.5 text-sm font-medium text-fairway ring-1 ring-fairway/20 opacity-50"
-              >
-                Save
-              </button>
+
+
+
               <button
                 onClick={handleBook}
                 disabled={bookingInProgress}
