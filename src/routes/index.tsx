@@ -187,14 +187,18 @@ function HomePage() {
             <span className="cursor-not-allowed opacity-60">Saved</span>
           </nav>
           <div className="flex items-center gap-2 text-sm font-medium">
-            <button
-              disabled
-              title="Coming soon"
-              className="cursor-not-allowed rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10 opacity-50"
-            >
-              Save list
-            </button>
+            {selectedCourse?.booking_url && (
+              <a
+                href={selectedCourse.booking_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="rounded-full bg-amber px-4 py-2 text-fairway-dark ring-1 ring-fairway-dark/10"
+              >
+                Book {selectedCourse.name.split(" ")[0]}
+              </a>
+            )}
           </div>
+
         </header>
 
         <section className="grid gap-8 border-b border-line py-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-12">
