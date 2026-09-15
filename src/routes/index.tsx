@@ -592,11 +592,8 @@ function HomePage() {
               </div>
             </div>
             <div className="flex shrink-0 items-center gap-2">
-              <button
-                disabled
-                hidden
-                className="hidden"
-              />
+
+
 
               <button
                 onClick={handleBook}
