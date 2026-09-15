@@ -147,9 +147,7 @@ function HomePage() {
       });
       toast.success("Tee time booked", {
         description: `You're set for ${selectedCourse?.name} at ${formatTime(
-          selectedTeeTime.start_time,
-          selectedCourse?.timezone
-        )}.`,
+          selectedTeeTime.start_time)}.`,
       });
       queryClient.invalidateQueries({
         queryKey: ["tee-times", format(selectedDate, "yyyy-MM-dd"), selectedCourse?.id ?? "all"],
@@ -421,7 +419,7 @@ function HomePage() {
                             key={slot.id}
                             className="rounded-md bg-paper px-2.5 py-1 text-xs font-medium"
                           >
-                            {formatTime(slot.start_time, course.timezone)}
+                            {formatTime(slot.start_time)}
                           </span>
                         ))
                       ) : (
@@ -547,7 +545,7 @@ function HomePage() {
                       if (players > slot.available_spots) setPlayers(Math.max(1, slot.available_spots));
                     }}
                     aria-pressed={selected}
-                    aria-label={`${formatTime(slot.start_time, selectedCourse?.timezone)}, ${full ? "full" : `${slot.available_spots} spots left`}`}
+                    aria-label={`${formatTime(slot.start_time)}, ${full ? "full" : `${slot.available_spots} spots left`}`}
                     className={`rounded-xl py-4 text-center transition ${
                       selected
                         ? "bg-amber text-fairway-dark ring-1 ring-fairway-dark/20"
@@ -557,7 +555,7 @@ function HomePage() {
                     }`}
                   >
                     <div className="font-display text-lg font-semibold">
-                      {formatTime(slot.start_time, selectedCourse?.timezone)}
+                      {formatTime(slot.start_time)}
                     </div>
                     <div
                       className={`text-[11px] uppercase tracking-wider ${
@@ -590,7 +588,7 @@ function HomePage() {
             <div className="min-w-0">
               <div className="truncate text-sm font-semibold">
                 {selectedCourse.name} · {format(selectedDate, "EEE d")} ·{" "}
-                {formatTime(selectedTeeTime.start_time, selectedCourse.timezone)}
+                {formatTime(selectedTeeTime.start_time)}
               </div>
               <div className="text-xs text-ink-soft">
                 {players} player{players !== 1 ? "s" : ""} · ${
