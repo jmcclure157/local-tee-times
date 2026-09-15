@@ -331,13 +331,17 @@ function HomePage() {
             >
               {bookingInProgress ? "Booking…" : "Confirm tee time"}
             </button>
-            <button
-              disabled
-              title="Coming soon"
-              className="mt-2 w-full cursor-not-allowed rounded-full py-2 text-sm font-medium text-paper/40"
-            >
-              Save to my list
-            </button>
+            {selectedCourse?.booking_url && (
+              <a
+                href={selectedCourse.booking_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="mt-2 block w-full rounded-full py-2 text-center text-sm font-medium text-paper/80 underline-offset-4 hover:underline"
+              >
+                Open {selectedCourse.booking_platform ?? "course"} booking site
+              </a>
+            )}
+
           </div>
         </section>
 
@@ -347,18 +351,7 @@ function HomePage() {
               Nearby courses
             </h2>
             <div className="flex items-center gap-3">
-              <div className="flex overflow-hidden rounded-full ring-1 ring-line">
-                <button className="bg-fairway px-4 py-1.5 text-xs font-semibold text-paper">
-                  List
-                </button>
-                <button
-                  disabled
-                  title="Coming soon"
-                  className="cursor-not-allowed bg-white px-4 py-1.5 text-xs font-medium text-ink-soft opacity-50"
-                >
-                  Map
-                </button>
-              </div>
+
               <span className="hidden text-xs font-medium text-ink-soft sm:block">
                 Sort: Openings
               </span>
@@ -601,11 +594,10 @@ function HomePage() {
             <div className="flex shrink-0 items-center gap-2">
               <button
                 disabled
-                title="Coming soon"
-                className="cursor-not-allowed rounded-full px-4 py-2.5 text-sm font-medium text-fairway ring-1 ring-fairway/20 opacity-50"
-              >
-                Save
-              </button>
+                hidden
+                className="hidden"
+              />
+
               <button
                 onClick={handleBook}
                 disabled={bookingInProgress}
